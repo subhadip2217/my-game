@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Four Finger Trapezium</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #05050f;
+      color: white;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    h1 {
+      margin: 14px 0 8px;
+      font-size: 26px;
+      background: linear-gradient(90deg, #00f0ff, #ff00aa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    #status {
+      background: rgba(20,20,30,0.9);
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid #333;
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+    #container {
+      position: relative;
+      width: 960px;
+      height: 540px;
+      background: #000;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 0 50px rgba(0, 200, 255, 0.15);
+    }
+    video, canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    video { z-index: 1; opacity: 0.4; }
+    canvas { z-index: 2; }
+    .tips {
+      margin-top: 16px;
+      text-align: center;
+      color: #777;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Four Finger Trapezium</h1>
+  <div id="status">Show both hands (Thumb + Index)</div>
+
+  <div id="container">
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div class="tips">
+    Use <b>Thumb + Index</b> of both hands<br>
+    The four fingertips create a live resizable trapezium area
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <script>
+    const videoElement = document.getElementById('video');
+    const canvasElement = document.getElementById('canvas');
+    const ctx = canvasElement.getContext('2d');
+    const statusEl = document.getElementById('status');
+
+    canvasElement.width = 960;
+    canvasElement.height = 540;
+
+    const hands = new Hands({
+      locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.6
+    });
+
+    hands.onResults(onResults);
+
+    function onResults(results) {
+      ctx.save();
+      ctx.clearRect(0, 0, 960, 540);
+      ctx.drawImage(results.image, 0, 0, 960, 540);
+
+      // Slight dark overlay
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(0, 0, 960, 540);
+
+      let points = []; // the four control points
+
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length >= 1) {
+        
+        results.multiHandLandmarks.forEach((landmarks, handIndex) => {
+          // Draw soft skeleton
+          drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
+            color: 'rgba(255,255,255,0.15)',
+            lineWidth: 2
+          });
+          drawLandmarks(ctx, landmarks, {
+            color: 'rgba(0, 240, 255, 0.4)',
+            radius: 3
+          });
+
+          // Thumb tip (4) and Index tip (8)
+          const thumb = landmarks[4];
+          const index = landmarks[8];
+
+          points.push({
+            x: thumb.x * 960,
+            y: thumb.y * 540,
+            hand: handIndex,
+            type: 'thumb'
+          });
+          points.push({
+            x: index.x * 960,
+            y: index.y * 540,
+            hand: handIndex,
+            type: 'index'
+          });
+        });
+      }
+
+      // Need exactly 4 points (2 hands × 2 fingers)
+      if (points.length === 4) {
+        statusEl.innerText = "Trapezium active • Move fingers to resize";
+
+        // Sort points to form a proper quadrilateral
+        // 1. Sort by x position (left to right)
+        points.sort((a, b) => a.x - b.x);
+
+        // Left two points
+        let left = points.slice(0, 2);
+        left.sort((a, b) => a.y - b.y); // top then bottom
+
+        // Right two points
+        let right = points.slice(2, 4);
+        right.sort((a, b) => a.y - b.y); // top then bottom
+
+        // Final order: Top-Left → Top-Right → Bottom-Right → Bottom-Left
+        const ordered = [left[0], right[0], right[1], left[1]];
+
+        // ===== Draw the highlighted trapezium =====
+        ctx.beginPath();
+        ctx.moveTo(ordered[0].x, ordered[0].y);
+        ctx.lineTo(ordered[1].x, ordered[1].y);
+        ctx.lineTo(ordered[2].x, ordered[2].y);
+        ctx.lineTo(ordered[3].x, ordered[3].y);
+        ctx.closePath();
+
+        // Fill
+        const gradient = ctx.createLinearGradient(
+          ordered[0].x, ordered[0].y,
+          ordered[2].x, ordered[2].y
+        );
+        gradient.addColorStop(0, 'rgba(0, 240, 255, 0.25)');
+        gradient.addColorStop(0.5, 'rgba(255, 0, 170, 0.2)');
+        gradient.addColorStop(1, 'rgba(0, 240, 255, 0.25)');
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Glowing border
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.9)';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Outer soft glow
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.3)';
+        ctx.lineWidth = 12;
+        ctx.stroke();
+
+        // Draw corner points
+        ordered.forEach((p, i) => {
+          // Outer glow
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+          ctx.fill();
+
+          // Core
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+          ctx.fillStyle = '#00f0ff';
+          ctx.fill();
+
+          // White center
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = '#fff';
+          ctx.fill();
+        });
+
+        // Draw connecting lines more clearly
+        ctx.beginPath();
+        ctx.moveTo(ordered[0].x, ordered[0].y);
+        ctx.lineTo(ordered[1].x, ordered[1].y);
+        ctx.lineTo(ordered[2].x, ordered[2].y);
+        ctx.lineTo(ordered[3].x, ordered[3].y);
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+      } else if (points.length > 0) {
+        statusEl.innerText = `Detected ${points.length}/4 points • Show both hands`;
+        
+        // Still draw the points we have
+        points.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+          ctx.fillStyle = '#ff00aa';
+          ctx.fill();
+        });
+      } else {
+        statusEl.innerText = "Show both hands (Thumb + Index of each hand)";
+      }
+
+      ctx.restore();
+    }
+
+    // Start camera
+    const camera = new Camera(videoElement, {
+      onFrame: async () => await hands.send({ image: videoElement }),
+      width: 960,
+      height: 540
+    });
+
+    camera.start()
+      .then(() => statusEl.innerText = "Ready • Show Thumb + Index of both hands")
+      .catch(err => statusEl.innerText = "Camera Error: " + err.message);
+  </script>
+</body>
+</html>
