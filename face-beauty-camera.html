@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Face Beauty Ratio Calculator (Camera)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  :root {
+    --primary: #6366f1;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --border: #334155;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #a5b4fc, #c4b5fd);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 4px;
+  }
+
+  .video-section {
+    position: relative;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+
+  #webcam, #outputCanvas {
+    width: 100%;
+    display: block;
+    max-height: 480px;
+    object-fit: cover;
+  }
+
+  #outputCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  button {
+    flex: 1;
+    min-width: 140px;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  #startBtn {
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    color: white;
+  }
+
+  #analyzeBtn {
+    background: linear-gradient(90deg, #10b981, #059669);
+    color: white;
+  }
+
+  #analyzeBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+
+  .score-box {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #312e81, #1e1b4b);
+    border-radius: 14px;
+    margin-bottom: 16px;
+  }
+
+  .score-value {
+    font-size: 3rem;
+    font-weight: 700;
+  }
+
+  .score-label {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .ratio-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ratio-item:last-child { border-bottom: none; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 8px;
+  }
+
+  .badge.good { background: rgba(16,185,129,0.2); color: #34d399; }
+  .badge.ok   { background: rgba(245,158,11,0.2); color: #fbbf24; }
+  .badge.bad  { background: rgba(239,68,68,0.2); color: #f87171; }
+
+  .status {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin: 12px 0;
+  }
+
+  .tips {
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .tips ul { margin: 8px 0 0 18px; }
+
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 20px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AI Face Beauty Ratio Calculator</h1>
+      <p class="subtitle">Camera + MediaPipe • Golden Ratio (φ ≈ 1.618)</p>
+    </header>
+
+    <div class="video-section">
+      <video id="webcam" autoplay playsinline></video>
+      <canvas id="outputCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <button id="startBtn">Start Camera</button>
+      <button id="analyzeBtn" disabled>Analyze Face</button>
+    </div>
+
+    <div class="status" id="status">Click "Start Camera" and allow camera access</div>
+    <div class="loading" id="loading">Loading AI model... Please wait</div>
+
+    <div class="card" id="resultsCard" style="display:none;">
+      <div class="score-box">
+        <div class="score-value" id="overallScore">—</div>
+        <div class="score-label">Overall Harmony Score</div>
+      </div>
+      <div id="ratioList"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:10px;">How to get best results</h3>
+      <div class="tips">
+        <ul>
+          <li>Good lighting (face evenly lit)</li>
+          <li>Look straight at the camera</li>
+          <li>Remove glasses / hair covering forehead</li>
+          <li>Keep a neutral expression</li>
+          <li>Hold still for 1 second then click Analyze</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+<script type="module">
+  import {
+    FaceLandmarker,
+    FilesetResolver,
+    DrawingUtils
+  } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+  const video = document.getElementById("webcam");
+  const canvas = document.getElementById("outputCanvas");
+  const ctx = canvas.getContext("2d");
+  const startBtn = document.getElementById("startBtn");
+  const analyzeBtn = document.getElementById("analyzeBtn");
+  const statusEl = document.getElementById("status");
+  const loadingEl = document.getElementById("loading");
+  const resultsCard = document.getElementById("resultsCard");
+  const ratioList = document.getElementById("ratioList");
+  const overallScoreEl = document.getElementById("overallScore");
+
+  let faceLandmarker = null;
+  let runningMode = "VIDEO";
+  let lastVideoTime = -1;
+  let webcamRunning = false;
+  let latestLandmarks = null;
+
+  // Key MediaPipe landmark indices
+  const LANDMARKS = {
+    forehead: 10,          // top of forehead
+    chin: 152,
+    leftCheek: 234,
+    rightCheek: 454,
+    noseTip: 4,
+    noseBase: 2,           // approximate base of nose
+    leftMouth: 61,
+    rightMouth: 291,
+    leftEyeInner: 133,
+    rightEyeInner: 362,
+    leftEyeOuter: 33,
+    rightEyeOuter: 263,
+    leftBrow: 107,         // approximate brow points
+    rightBrow: 336
+  };
+
+  const PHI = 1.6180339887;
+
+  async function createFaceLandmarker() {
+    loadingEl.style.display = "block";
+    statusEl.textContent = "Loading AI model...";
+
+    const vision = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    );
+
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+        delegate: "GPU"
+      },
+      runningMode: runningMode,
+      numFaces: 1
+    });
+
+    loadingEl.style.display = "none";
+    statusEl.textContent = "Model ready! Click Start Camera";
+  }
+
+  async function startCamera() {
+    if (!faceLandmarker) {
+      await createFaceLandmarker();
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        },
+        audio: false
+      });
+
+      video.srcObject = stream;
+      video.addEventListener("loadeddata", () => {
+        webcamRunning = true;
+        analyzeBtn.disabled = false;
+        startBtn.textContent = "Camera On";
+        statusEl.textContent = "Camera active • Look at the camera and click Analyze";
+        predictWebcam();
+      });
+    } catch (err) {
+      statusEl.textContent = "Camera access denied or not available";
+      console.error(err);
+    }
+  }
+
+  async function predictWebcam() {
+    if (!webcamRunning) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    if (runningMode === "IMAGE") {
+      await faceLandmarker.setOptions({ runningMode: "VIDEO" });
+      runningMode = "VIDEO";
+    }
+
+    let startTimeMs = performance.now();
+
+    if (lastVideoTime !== video.currentTime) {
+      lastVideoTime = video.currentTime;
+      const results = faceLandmarker.detectForVideo(video, startTimeMs);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+        latestLandmarks = results.faceLandmarks[0];
+        const drawingUtils = new DrawingUtils(ctx);
+
+        // Draw face mesh (subtle)
+        drawingUtils.drawConnectors(
+          latestLandmarks,
+          FaceLandmarker.FACE_LANDMARKS_TESSELATION,
+          { color: "#C0C0C070", lineWidth: 0.5 }
+        );
+
+        // Highlight key points
+        const keyPoints = Object.values(LANDMARKS);
+        keyPoints.forEach(idx => {
+          const p = latestLandmarks[idx];
+          ctx.beginPath();
+          ctx.arc(p.x * canvas.width, p.y * canvas.height, 3, 0, 2 * Math.PI);
+          ctx.fillStyle = "#22d3ee";
+          ctx.fill();
+        });
+      } else {
+        latestLandmarks = null;
+      }
+    }
+
+    requestAnimationFrame(predictWebcam);
+  }
+
+  function distance(p1, p2) {
+    const dx = (p1.x - p2.x) * canvas.width;
+    const dy = (p1.y - p2.y) * canvas.height;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function closeness(actual, ideal) {
+    if (!actual || actual <= 0) return 0;
+    const ratio = Math.min(actual, ideal) / Math.max(actual, ideal);
+    return Math.round(ratio * 100);
+  }
+
+  function getBadge(score) {
+    if (score >= 90) return '<span class="badge good">Excellent</span>';
+    if (score >= 75) return '<span class="badge ok">Good</span>';
+    return '<span class="badge bad">Fair</span>';
+  }
+
+  function analyzeFace() {
+    if (!latestLandmarks) {
+      statusEl.textContent = "No face detected. Please look at the camera.";
+      return;
+    }
+
+    const lm = latestLandmarks;
+
+    // Key measurements
+    const faceLength = distance(lm[LANDMARKS.forehead], lm[LANDMARKS.chin]);
+    const faceWidth  = distance(lm[LANDMARKS.leftCheek], lm[LANDMARKS.rightCheek]);
+
+    const foreheadH = distance(lm[LANDMARKS.forehead], lm[LANDMARKS.leftBrow]); // approx
+    const midfaceH  = distance(lm[LANDMARKS.leftBrow], lm[LANDMARKS.noseBase]);
+    const lowerH    = distance(lm[LANDMARKS.noseBase], lm[LANDMARKS.chin]);
+
+    const noseWidth  = distance(lm[LANDMARKS.leftEyeInner], lm[LANDMARKS.rightEyeInner]) * 0.85; // approx
+    const mouthWidth = distance(lm[LANDMARKS.leftMouth], lm[LANDMARKS.rightMouth]);
+
+    const leftEyeW  = distance(lm[LANDMARKS.leftEyeOuter], lm[LANDMARKS.leftEyeInner]);
+    const rightEyeW = distance(lm[LANDMARKS.rightEyeOuter], lm[LANDMARKS.rightEyeInner]);
+    const eyeWidth  = (leftEyeW + rightEyeW) / 2;
+    const eyeDist   = distance(lm[LANDMARKS.leftEyeInner], lm[LANDMARKS.rightEyeInner]);
+
+    // Calculate scores
+    const results = [];
+    let total = 0;
+    let count = 0;
+
+    // 1. Main Golden Ratio
+    if (faceLength && faceWidth) {
+      const ratio = faceLength / faceWidth;
+      const score = closeness(ratio, PHI);
+      results.push({
+        name: "Face Length ÷ Width",
+        actual: ratio.toFixed(3),
+        ideal: "1.618",
+        score
+      });
+      total += score;
+      count++;
+    }
+
+    // 2. Facial Thirds
+    if (foreheadH && midfaceH && lowerH) {
+      const avg = (foreheadH + midfaceH + lowerH) / 3;
+      const maxDiff = Math.max(
+        Math.abs(foreheadH - avg),
+        Math.abs(midfaceH - avg),
+        Math.abs(lowerH - avg)
+      );
+      const score = Math.max(0, Math.round(100 - (maxDiff / avg) * 180));
+      results.push({
+        name: "Facial Thirds Balance",
+        actual: "Upper / Mid / Lower",
+        ideal: "Equal thirds",
+        score
+      });
+      total += score;
+      count++;
+    }
+
+    // 3. Mouth / Nose
+    if (mouthWidth && noseWidth) {
+      const ratio = mouthWidth / noseWidth;
+      const score = closeness(ratio, PHI);
+      results.push({
+        name: "Mouth ÷ Nose Width",
+        actual: ratio.toFixed(3),
+        ideal: "1.618",
+        score
+      });
+      total += score;
+      count++;
+    }
+
+    // 4. Eye width vs inter-eye distance
+    if (eyeWidth && eyeDist) {
+      const ratio = Math.max(eyeWidth, eyeDist) / Math.min(eyeWidth, eyeDist);
+      const score = closeness(ratio, 1);
+      results.push({
+        name: "Eye Width ≈ Eye Distance",
+        actual: "Should be similar",
+        ideal: "1 : 1",
+        score
+      });
+      total += score;
+      count++;
+    }
+
+    // Overall score
+    const overall = count > 0 ? Math.round(total / count) : 0;
+    overallScoreEl.textContent = overall + "%";
+    overallScoreEl.style.color = overall >= 88 ? "#34d399" : overall >= 72 ? "#fbbf24" : "#f87171";
+
+    // Render list
+    let html = "";
+    results.forEach(r => {
+      html += `
+        <div class="ratio-item">
+          <div>
+            <strong>${r.name}</strong>
+          </div>
+          <div style="text-align:right;">
+            <div>${r.actual} ${getBadge(r.score)}</div>
+            <div style="font-size:0.8rem;color:var(--muted);">Ideal: ${r.ideal}</div>
+          </div>
+        </div>
+      `;
+    });
+
+    ratioList.innerHTML = html;
+    resultsCard.style.display = "block";
+    statusEl.textContent = "Analysis complete!";
+    resultsCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  // Event listeners
+  startBtn.addEventListener("click", startCamera);
+  analyzeBtn.addEventListener("click", analyzeFace);
+
+  // Preload model on page load (optional but faster)
+  createFaceLandmarker().catch(console.error);
+</script>
+</body>
+</html>
