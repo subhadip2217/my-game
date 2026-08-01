@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golden Ratio Face Calculator</title>
+    
+    <!-- Load MediaPipe Face Mesh dependencies via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        p {
+            color: #aaaaaa;
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 600px;
+        }
+        .container {
+            position: relative;
+            width: 640px;
+            height: 480px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            background-color: #000;
+        }
+        /* Hide the original video, we will draw it on the canvas */
+        video {
+            display: none;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1); /* Mirror the image for user comfort */
+        }
+        #score-box {
+            margin-top: 20px;
+            padding: 20px 40px;
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            border-radius: 50px;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Golden Ratio Calculator</h1>
+    <p>Look straight into the camera. This tool calculates how closely your facial proportions align with the mathematical Golden Ratio (1.618).</p>
+
+    <div class="container">
+        <div id="loading">Loading AI Models & Camera...</div>
+        <video id="input_video" autoplay playsinline></video>
+        <canvas id="output_canvas" width="640" height="480"></canvas>
+    </div>
+
+    <div id="score-box">Scanning Face...</div>
+
+    <script>
+        const videoElement = document.getElementById('input_video');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const scoreBox = document.getElementById('score-box');
+        const loadingText = document.getElementById('loading');
+
+        const GOLDEN_RATIO = 1.618;
+
+        // Function to calculate distance between two 2D points
+        // Multiplying by canvas width/height converts normalized coordinates to actual pixel distances
+        function getDistance(p1, p2) {
+            const x1 = p1.x * canvasElement.width;
+            const y1 = p1.y * canvasElement.height;
+            const x2 = p2.x * canvasElement.width;
+            const y2 = p2.y * canvasElement.height;
+            return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+        }
+
+        // Calculate a score from 0-100 based on how close a measured ratio is to the Golden Ratio
+        function calculateRatioScore(measuredRatio) {
+            // Difference from the golden ratio
+            let diff = Math.abs(measuredRatio - GOLDEN_RATIO);
+            // Convert difference to a percentage score (if difference is 0, score is 100%)
+            let score = 100 - (diff / GOLDEN_RATIO * 100);
+            return Math.max(0, Math.min(100, score)); // Clamp between 0 and 100
+        }
+
+        function onResults(results) {
+            loadingText.style.display = "none";
+            
+            // Draw video feed to canvas
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                const landmarks = results.multiFaceLandmarks[0];
+
+                // Draw a simple mesh over the face for a cool "tech" effect
+                drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#C0C0C070', lineWidth: 1});
+
+                // MEDIA PIPE LANDMARK INDICES:
+                // Top of forehead: 10, Bottom of chin: 152
+                // Left face edge: 234, Right face edge: 454
+                // Outer left eye: 33, Outer right eye: 263
+                // Left nostril: 129, Right nostril: 358
+
+                // 1. Face Length to Width Ratio
+                const faceLength = getDistance(landmarks[10], landmarks[152]);
+                const faceWidth = getDistance(landmarks[234], landmarks[454]);
+                const lengthWidthRatio = faceLength / faceWidth;
+                const score1 = calculateRatioScore(lengthWidthRatio);
+
+                // 2. Eye Distance to Nose Width Ratio
+                const outerEyeDist = getDistance(landmarks[33], landmarks[263]);
+                const noseWidth = getDistance(landmarks[129], landmarks[358]);
+                const eyeNoseRatio = outerEyeDist / noseWidth;
+                const score2 = calculateRatioScore(eyeNoseRatio);
+
+                // Average the scores to get the final Golden Ratio Match percentage
+                const finalScore = (score1 + score2) / 2;
+
+                scoreBox.innerText = `Golden Ratio Match: ${finalScore.toFixed(1)}%`;
+                
+                // Change color based on score
+                if(finalScore > 90) {
+                    scoreBox.style.background = "linear-gradient(135deg, #00b09b, #96c93d)";
+                } else if(finalScore > 80) {
+                    scoreBox.style.background = "linear-gradient(135deg, #00c6ff, #0072ff)";
+                } else {
+                    scoreBox.style.background = "linear-gradient(135deg, #f12711, #f5af19)";
+                }
+
+            } else {
+                scoreBox.innerText = "No face detected. Please face the camera.";
+                scoreBox.style.background = "gray";
+            }
+            canvasCtx.restore();
+        }
+
+        // Initialize MediaPipe FaceMesh
+        const faceMesh = new FaceMesh({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+        }});
+        
+        faceMesh.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        
+        faceMesh.onResults(onResults);
+
+        // Initialize Web Camera
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await faceMesh.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+        
+        camera.start();
+    </script>
+</body>
+</html>
