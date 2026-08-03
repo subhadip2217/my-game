@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gay Detector 3000 - Loading Edition</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #ff69b4, #9400d3, #00bfff);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: white;
+    text-align: center;
+  }
+  .box {
+    background: rgba(0,0,0,0.78);
+    padding: 40px 30px;
+    border-radius: 20px;
+    max-width: 460px;
+    width: 90%;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  h1 {
+    margin: 0 0 6px;
+    font-size: 2rem;
+  }
+  .subtitle {
+    opacity: 0.75;
+    margin-bottom: 28px;
+    font-size: 0.95rem;
+  }
+  button {
+    display: block;
+    width: 100%;
+    margin: 12px 0;
+    padding: 16px;
+    font-size: 1.15rem;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.15s;
+  }
+  button:hover {
+    transform: scale(1.04);
+  }
+  .yes   { background: #ff4d6d; color: white; }
+  .no    { background: #4cc9f0; color: #000; }
+  .maybe { background: #ffd60a; color: #000; }
+
+  #stage {
+    min-height: 220px;
+  }
+
+  .loading-text {
+    font-size: 1.15rem;
+    margin: 18px 0 12px;
+    min-height: 28px;
+  }
+
+  .progress-container {
+    background: rgba(255,255,255,0.15);
+    border-radius: 30px;
+    height: 18px;
+    overflow: hidden;
+    margin: 20px 0;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ff4d6d, #ffd60a, #4cc9f0);
+    border-radius: 30px;
+    transition: width 0.4s ease;
+  }
+
+  .final {
+    animation: pop 0.5s ease;
+  }
+  .rainbow {
+    background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8f00ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 800;
+    font-size: 2.1rem;
+  }
+
+  @keyframes pop {
+    0%   { transform: scale(0.7); opacity: 0; }
+    70%  { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+  <div class="box">
+    <h1> Gay Detector 3000</h1>
+    <p class="subtitle">Advanced Scanning Technology • Accuracy: 94%</p>
+
+    <div id="stage">
+      <h2 style="margin-top:0">Are you gay?</h2>
+      <button class="yes"   onclick="startScan()">Yes</button>
+      <button class="no"    onclick="startScan()">No</button>
+      <button class="maybe" onclick="startScan()">Maybe a little</button>
+    </div>
+  </div>
+
+<script>
+  const stage = document.getElementById('stage');
+
+  const steps = [
+    "Analyzing voice…",
+    "Checking playlist…",
+    "Scanning browser history…",
+    "Checking how many times you said “slay”…",
+    "Measuring crop-top potential…",
+    "Final calculation…"
+  ];
+
+  function startScan() {
+    // Show loading UI
+    stage.innerHTML = `
+      <p style="font-size:1.3rem;margin:0 0 5px">Scanning in progress…</p>
+      <div class="loading-text" id="status">Initializing…</div>
+      <div class="progress-container">
+        <div class="progress-bar" id="bar"></div>
+      </div>
+      <p style="font-size:0.9rem;opacity:0.7" id="percent">0%</p>
+    `;
+
+    const status = document.getElementById('status');
+    const bar = document.getElementById('bar');
+    const percent = document.getElementById('percent');
+
+    let i = 0;
+
+    const interval = setInterval(() => {
+      if (i < steps.length) {
+        status.textContent = steps[i];
+        const progress = Math.round(((i + 1) / steps.length) * 100);
+        bar.style.width = progress + "%";
+        percent.textContent = progress + "%";
+        i++;
+      } else {
+        clearInterval(interval);
+
+        // Final result
+        setTimeout(() => {
+          stage.innerHTML = `
+            <div class="final">
+              <p style="font-size:1.1rem;opacity:0.85;margin-bottom:8px">Scan complete</p>
+              <div class="rainbow">94% GAY</div>
+              <p style="font-size:1.25rem;margin:18px 0 8px">Official diagnosis:</p>
+              <p style="font-size:1.5rem;font-weight:700">Extremely gay</p>
+              <p style="font-size:0.95rem;opacity:0.75;margin-top:16px">
+                Please collect your free pride flag on the way out 
+              </p>
+            </div>
+          `;
+        }, 600);
+      }
+    }, 900); // speed of each step (adjust if you want faster/slower)
+  }
+</script>
+</body>
+</html>
