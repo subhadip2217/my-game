@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Secret Crush 💖</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, #ff758c, #ff7eb3, #c471ed);
+    overflow: hidden;
+}
+
+/* Background glowing circles */
+body::before,
+body::after {
+    content: "";
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
+}
+
+body::before {
+    background: #fff;
+    top: -100px;
+    left: -100px;
+}
+
+body::after {
+    background: #ff1744;
+    bottom: -100px;
+    right: -100px;
+}
+
+/* Main card */
+.card {
+    position: relative;
+    z-index: 5;
+    width: 90%;
+    max-width: 430px;
+    padding: 40px 25px;
+    text-align: center;
+
+    background: rgba(255,255,255,0.20);
+    backdrop-filter: blur(18px);
+
+    border: 2px solid rgba(255,255,255,0.45);
+    border-radius: 30px;
+
+    box-shadow:
+        0 20px 50px rgba(0,0,0,0.25),
+        inset 0 0 20px rgba(255,255,255,0.15);
+}
+
+.top-heart {
+    font-size: 55px;
+    animation: heartbeat 1.3s infinite;
+}
+
+@keyframes heartbeat {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.18);
+    }
+}
+
+h1 {
+    color: white;
+    font-size: 29px;
+    margin: 15px 0 10px;
+    text-shadow: 0 4px 15px rgba(0,0,0,0.25);
+}
+
+.subtitle {
+    color: white;
+    font-size: 16px;
+    margin-bottom: 28px;
+}
+
+/* Button */
+button {
+    border: none;
+    padding: 16px 26px;
+    border-radius: 50px;
+
+    font-size: 17px;
+    font-weight: bold;
+    color: white;
+
+    background: linear-gradient(45deg, #ff1744, #ff4081);
+
+    cursor: pointer;
+
+    box-shadow: 0 8px 25px rgba(255,23,68,0.45);
+
+    transition: 0.3s;
+}
+
+button:hover {
+    transform: scale(1.08);
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+/* Result initially hidden */
+#result {
+    display: none;
+    margin-top: 28px;
+    animation: reveal 1s ease;
+}
+
+@keyframes reveal {
+    0% {
+        opacity: 0;
+        transform: scale(0.2) translateY(30px);
+    }
+
+    70% {
+        transform: scale(1.08);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Photo */
+.crush-image {
+    width: 210px;
+    height: 210px;
+
+    object-fit: cover;
+
+    border-radius: 50%;
+
+    border: 6px solid white;
+
+    box-shadow:
+        0 0 20px rgba(255,255,255,0.8),
+        0 15px 35px rgba(0,0,0,0.3);
+
+    animation: photoPop 1s ease;
+}
+
+@keyframes photoPop {
+    0% {
+        transform: scale(0) rotate(-20deg);
+        opacity: 0;
+    }
+
+    70% {
+        transform: scale(1.15) rotate(5deg);
+    }
+
+    100% {
+        transform: scale(1) rotate(0);
+        opacity: 1;
+    }
+}
+
+.result-title {
+    color: white;
+    font-size: 25px;
+    margin: 18px 0 5px;
+    text-shadow: 0 4px 15px rgba(0,0,0,0.25);
+}
+
+.name {
+    color: white;
+    font-size: 34px;
+    font-weight: bold;
+    margin: 5px 0;
+
+    text-shadow:
+        0 0 10px #fff,
+        0 0 25px #ff1744;
+}
+
+.secret {
+    color: white;
+    font-size: 15px;
+}
+
+/* Floating hearts */
+.heart {
+    position: absolute;
+    bottom: -50px;
+    font-size: 25px;
+    animation: floatUp 7s linear infinite;
+    opacity: 0.8;
+    z-index: 1;
+}
+
+.heart:nth-child(1) {
+    left: 8%;
+    animation-delay: 0s;
+}
+
+.heart:nth-child(2) {
+    left: 25%;
+    animation-delay: 2s;
+}
+
+.heart:nth-child(3) {
+    left: 45%;
+    animation-delay: 4s;
+}
+
+.heart:nth-child(4) {
+    left: 68%;
+    animation-delay: 1s;
+}
+
+.heart:nth-child(5) {
+    left: 88%;
+    animation-delay: 3s;
+}
+
+@keyframes floatUp {
+    0% {
+        bottom: -50px;
+        transform: translateX(0) rotate(0deg);
+    }
+
+    50% {
+        transform: translateX(30px) rotate(20deg);
+    }
+
+    100% {
+        bottom: 110%;
+        transform: translateX(-30px) rotate(-20deg);
+    }
+}
+
+/* Mobile */
+@media (max-width: 500px) {
+
+    .card {
+        padding: 30px 18px;
+    }
+
+    h1 {
+        font-size: 25px;
+    }
+
+    .crush-image {
+        width: 180px;
+        height: 180px;
+    }
+
+    .name {
+        font-size: 29px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- Floating hearts -->
+<div class="heart">❤️</div>
+<div class="heart">💖</div>
+<div class="heart">💕</div>
+<div class="heart">💗</div>
+<div class="heart">💘</div>
+
+<div class="card">
+
+    <div class="top-heart">💝</div>
+
+    <h1>Want to know your crush?</h1>
+
+    <p class="subtitle">
+        There is a little secret waiting for you... 👀
+    </p>
+
+    <button onclick="revealCrush()">
+        Click here to know your crush ❤️
+    </button>
+
+    <!-- Hidden until button is clicked -->
+    <div id="result">
+
+        <p class="result-title">
+            Your crush is...
+        </p>
+
+        <!-- Your uploaded picture -->
+        <img src="pritam.png"
+             alt="Crush"
+             class="crush-image">
+
+        <div class="name">
+            ✨ PRITAM ✨
+        </div>
+
+        <p class="secret">
+            🤫 Don't tell anyone!
+        </p>
+
+    </div>
+
+</div>
+
+<script>
+function revealCrush() {
+
+    document.getElementById("result").style.display = "block";
+
+    // Hide button after clicking
+    document.querySelector("button").style.display = "none";
+
+}
+</script>
+
+</body>
+</html>
