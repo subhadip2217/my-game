@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Special Message ❤️</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #ff758c, #ff7eb3);
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+            transition: background 0.8s ease;
+        }
+
+        .container {
+            text-align: center;
+            color: white;
+            text-shadow: 0 3px 15px rgba(0,0,0,0.25);
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 3.8rem;
+            margin-bottom: 25px;
+            transition: all 0.5s ease;
+        }
+
+        .btn {
+            background: white;
+            color: #ff4d6d;
+            border: none;
+            padding: 16px 45px;
+            font-size: 1.25rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+        }
+
+        .heart {
+            position: absolute;
+            font-size: 28px;
+            animation: rise 5s linear infinite;
+            opacity: 0.8;
+            pointer-events: none;
+        }
+
+        @keyframes rise {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-150px) rotate(720deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="message">I Love You ❤️</h1>
+        <button class="btn" onclick="reveal()">Click to reveal 💕</button>
+    </div>
+
+    <script>
+        // Floating hearts
+        function createHeart() {
+            const heart = document.createElement('div');
+            heart.className = 'heart';
+            heart.innerHTML = ['❤️','💖','💗','💕'][Math.floor(Math.random()*4)];
+            heart.style.left = Math.random() * 100 + 'vw';
+            heart.style.animationDuration = (Math.random() * 3 + 4) + 's';
+            heart.style.fontSize = (Math.random() * 20 + 20) + 'px';
+            document.body.appendChild(heart);
+            setTimeout(() => heart.remove(), 7000);
+        }
+        setInterval(createHeart, 350);
+
+        function reveal() {
+            const msg = document.getElementById('message');
+            const btn = document.querySelector('.btn');
+
+            // Change background
+            document.body.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+
+            // The prank message
+            msg.innerHTML = "I love <span style='color:#ffeb3b'>Mimi</span>, not you 😈";
+            msg.style.fontSize = '3.2rem';
+
+            // Hide the button
+            btn.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
