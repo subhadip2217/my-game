@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Palmistry AI — Hand Astrology Reader</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+
+    :root {
+      --bg: #0c0a14;
+      --card: #16122a;
+      --accent: #c9a227;
+      --accent2: #9b59b6;
+      --text: #f5f0e6;
+      --muted: #a89bb8;
+      --border: #2e2545;
+      --success: #2ecc71;
+      --left: #3498db;
+      --right: #e74c3c;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: radial-gradient(ellipse at top, #1a1430 0%, var(--bg) 60%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.9rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #f0d78c, #c9a227, #e8c547);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 0.04em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: 6px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    @media (min-width: 800px) {
+      .layout {
+        grid-template-columns: 1.1fr 0.9fr;
+      }
+    }
+
+    .video-section {
+      position: relative;
+      background: #000;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 0 40px rgba(201, 162, 39, 0.08);
+    }
+
+    #webcam, #overlay {
+      width: 100%;
+      display: block;
+      max-height: 520px;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+
+    .hand-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 5;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid var(--border);
+      display: none;
+    }
+
+    .hand-badge.left { color: var(--left); border-color: var(--left); display: block; }
+    .hand-badge.right { color: var(--right); border-color: var(--right); display: block; }
+    .hand-badge.none { color: var(--muted); display: block; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    button {
+      flex: 1;
+      min-width: 140px;
+      padding: 14px 18px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    #startBtn {
+      background: linear-gradient(135deg, #c9a227, #e8c547);
+      color: #1a1200;
+    }
+
+    #analyzeBtn {
+      background: linear-gradient(135deg, #9b59b6, #8e44ad);
+      color: white;
+    }
+
+    #analyzeBtn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(201, 162, 39, 0.3);
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 22px;
+      border: 1px solid var(--border);
+    }
+
+    .card h2 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.25rem;
+      color: var(--accent);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-line {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .status-line strong {
+      color: var(--text);
+    }
+
+    .reading {
+      line-height: 1.65;
+      font-size: 0.95rem;
+      color: #e8e0d5;
+    }
+
+    .reading p {
+      margin-bottom: 12px;
+    }
+
+    .reading .section-title {
+      font-family: 'Cinzel', serif;
+      color: var(--accent);
+      font-size: 1.05rem;
+      margin: 18px 0 8px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin: 2px 4px 2px 0;
+      background: rgba(201, 162, 39, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(201, 162, 39, 0.35);
+    }
+
+    .tag.left { background: rgba(52, 152, 219, 0.15); color: var(--left); border-color: rgba(52,152,219,0.4); }
+    .tag.right { background: rgba(231, 76, 60, 0.15); color: var(--right); border-color: rgba(231,76,60,0.4); }
+
+    .placeholder {
+      color: var(--muted);
+      text-align: center;
+      padding: 40px 16px;
+      font-size: 0.95rem;
+    }
+
+    .hint {
+      margin-top: 14px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .footer-note {
+      text-align: center;
+      margin-top: 28px;
+      font-size: 0.78rem;
+      color: #6b5f80;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>✧ Palmistry AI ✧</h1>
+      <p class="subtitle">Show your palm to the camera • Instant hand astrology reading</p>
+    </header>
+
+    <div class="layout">
+      <!-- Camera column -->
+      <div>
+        <div class="video-section">
+          <video id="webcam" playsinline></video>
+          <canvas id="overlay"></canvas>
+          <div id="handBadge" class="hand-badge none">No hand detected</div>
+        </div>
+
+        <div class="controls">
+          <button id="startBtn">Start Camera</button>
+          <button id="analyzeBtn" disabled>Read My Palm</button>
+        </div>
+        <p class="hint">Hold one hand open, palm facing the camera. Keep it steady for best results.</p>
+      </div>
+
+      <!-- Reading column -->
+      <div class="card">
+        <h2>✦ Your Reading</h2>
+        <div id="statusLine" class="status-line">Camera off • Waiting for hand…</div>
+        <div id="readingArea" class="reading">
+          <div class="placeholder">
+            Start the camera, show your palm, then tap <strong>Read My Palm</strong>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="footer-note">For entertainment only • Not real astrology • Powered by MediaPipe Hands</p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+
+  <script>
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('overlay');
+    const ctx = canvas.getContext('2d');
+    const startBtn = document.getElementById('startBtn');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const handBadge = document.getElementById('handBadge');
+    const statusLine = document.getElementById('statusLine');
+    const readingArea = document.getElementById('readingArea');
+
+    let camera = null;
+    let hands = null;
+    let latestResults = null;
+    let cameraActive = false;
+
+    // ---------- Palmistry knowledge (simple rule-based) ----------
+    const lifeLineMessages = [
+      "Your Life Line suggests strong vitality and a resilient spirit. You recover quickly from setbacks.",
+      "A long, clear Life Line points to good health energy and a steady life force.",
+      "Your Life Line curves deeply — you have passion for living and tend to take bold paths.",
+      "A softer Life Line indicates sensitivity and a thoughtful approach to life's challenges."
+    ];
+
+    const headLineMessages = [
+      "Your Head Line reveals a sharp, analytical mind. You think before you act.",
+      "A long Head Line suggests deep curiosity and a love of learning.",
+      "Your Head Line is practical — you prefer concrete results over pure theory.",
+      "A curved Head Line shows creativity and imaginative problem-solving."
+    ];
+
+    const heartLineMessages = [
+      "Your Heart Line speaks of deep emotional capacity and loyalty in love.",
+      "A strong Heart Line indicates warmth and the ability to form lasting bonds.",
+      "Your Heart Line suggests you value emotional honesty above all.",
+      "A gentle Heart Line shows compassion and a romantic nature."
+    ];
+
+    const fateLineMessages = [
+      "Traces of a Fate Line appear — destiny has a role, but you still steer the wheel.",
+      "A visible Fate Line points to a sense of purpose that guides major decisions.",
+      "Your Fate Line is soft, meaning free will plays a bigger role than fixed destiny.",
+      "Clear Fate energy suggests career and life path will feel meaningful to you."
+    ];
+
+    const personalityByShape = {
+      long: "Long fingers and an elegant palm shape often belong to thinkers, communicators, and idealists.",
+      square: "A more square, solid palm suggests practicality, reliability, and grounded energy.",
+      balanced: "Your hand proportions are balanced — you blend logic with intuition well."
+    };
+
+    const leftMeanings = [
+      "In classical palmistry the <strong>left hand</strong> is said to show potential, inherited traits, and what the cosmos wrote for you.",
+      "Left hand readings often reveal inner nature, talents you were born with, and the softer side of destiny."
+    ];
+
+    const rightMeanings = [
+      "The <strong>right hand</strong> is traditionally read as the hand of action — what you have made of your gifts so far.",
+      "Right hand shows current path, choices, and the life you are actively shaping."
+    ];
+
+    function pick(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function classifyHandShape(landmarks) {
+      // Simple heuristic using wrist to middle finger tip vs palm width
+      const wrist = landmarks[0];
+      const middleTip = landmarks[12];
+      const indexMcp = landmarks[5];
+      const pinkyMcp = landmarks[17];
+
+      const length = Math.hypot(middleTip.x - wrist.x, middleTip.y - wrist.y);
+      const width = Math.hypot(indexMcp.x - pinkyMcp.x, indexMcp.y - pinkyMcp.y);
+
+      const ratio = length / (width + 0.001);
+      if (ratio > 2.35) return 'long';
+      if (ratio < 1.85) return 'square';
+      return 'balanced';
+    }
+
+    function estimateFingerLength(landmarks) {
+      // Relative lengths for personality tags
+      const tips = [8, 12, 16, 20]; // index, middle, ring, pinky tips
+      const bases = [5, 9, 13, 17];
+      let sum = 0;
+      for (let i = 0; i < 4; i++) {
+        sum += Math.hypot(
+          landmarks[tips[i]].x - landmarks[bases[i]].x,
+          landmarks[tips[i]].y - landmarks[bases[i]].y
+        );
+      }
+      return sum / 4;
+    }
+
+    function generateReading(handednessLabel, landmarks) {
+      const isLeft = handednessLabel.toLowerCase().includes('left');
+      const shape = classifyHandShape(landmarks);
+      const avgFinger = estimateFingerLength(landmarks);
+
+      const sideTag = isLeft
+        ? '<span class="tag left">Left Hand</span>'
+        : '<span class="tag right">Right Hand</span>';
+
+      const shapeTag = `<span class="tag">${shape.charAt(0).toUpperCase() + shape.slice(1)} Palm</span>`;
+
+      let html = '';
+      html += `<p>${sideTag} ${shapeTag}</p>`;
+
+      html += `<p class="section-title">Hand Confirmation</p>`;
+      html += `<p>The system clearly detected your <strong>${isLeft ? 'LEFT' : 'RIGHT'}</strong> hand. `;
+      html += isLeft ? pick(leftMeanings) : pick(rightMeanings);
+      html += `</p>`;
+
+      html += `<p class="section-title">Palm Shape & Personality</p>`;
+      html += `<p>${personalityByShape[shape]}</p>`;
+
+      html += `<p class="section-title">Life Line</p>`;
+      html += `<p>${pick(lifeLineMessages)}</p>`;
+
+      html += `<p class="section-title">Head Line</p>`;
+      html += `<p>${pick(headLineMessages)}</p>`;
+
+      html += `<p class="section-title">Heart Line</p>`;
+      html += `<p>${pick(heartLineMessages)}</p>`;
+
+      html += `<p class="section-title">Fate & Path</p>`;
+      html += `<p>${pick(fateLineMessages)}</p>`;
+
+      html += `<p class="section-title">Overall Energy</p>`;
+      if (avgFinger > 0.18) {
+        html += `<p>Your fingers carry an airy, expressive quality. Communication and ideas flow easily for you.</p>`;
+      } else {
+        html += `<p>Your hand shows solid, earthy energy. You prefer action and tangible results.</p>`;
+      }
+
+      html += `<p style="margin-top:18px;font-size:0.85rem;color:var(--muted);">✦ Reading generated from live hand landmarks. For fun & reflection only.</p>`;
+
+      return html;
+    }
+
+    // ---------- MediaPipe setup ----------
+    function onResults(results) {
+      latestResults = results;
+
+      // Resize canvas to video
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
+        const handedness = results.multiHandedness[0];
+        // MediaPipe returns the hand as seen in the image (mirrored video).
+        // Because we mirror the video with CSS, we invert the label for user-facing correctness.
+        let label = handedness.label; // "Left" or "Right"
+        // After horizontal flip, Left becomes Right from user's view and vice-versa
+        const userFacing = label === 'Left' ? 'Right' : 'Left';
+
+        // Draw connections & landmarks
+        drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#c9a227', lineWidth: 3 });
+        drawLandmarks(ctx, landmarks, { color: '#e8c547', lineWidth: 1, radius: 4 });
+
+        handBadge.className = 'hand-badge ' + userFacing.toLowerCase();
+        handBadge.textContent = userFacing + ' Hand Detected';
+        statusLine.innerHTML = `Camera on • <strong>${userFacing} hand</strong> visible`;
+        analyzeBtn.disabled = false;
+      } else {
+        handBadge.className = 'hand-badge none';
+        handBadge.textContent = 'No hand detected';
+        statusLine.innerHTML = 'Camera on • Waiting for hand…';
+        analyzeBtn.disabled = true;
+      }
+
+      ctx.restore();
+    }
+
+    async function initHands() {
+      hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      });
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.6
+      });
+      hands.onResults(onResults);
+    }
+
+    async function startCamera() {
+      if (cameraActive) return;
+
+      await initHands();
+
+      camera = new Camera(video, {
+        onFrame: async () => {
+          if (hands) await hands.send({ image: video });
+        },
+        width: 640,
+        height: 480
+      });
+
+      await camera.start();
+      cameraActive = true;
+      startBtn.textContent = 'Camera On';
+      startBtn.style.opacity = '0.7';
+      statusLine.textContent = 'Camera on • Waiting for hand…';
+    }
+
+    startBtn.addEventListener('click', () => {
+      startCamera().catch(err => {
+        console.error(err);
+        statusLine.textContent = 'Camera permission denied or unavailable.';
+        alert('Could not access camera. Please allow camera permission and try again.');
+      });
+    });
+
+    analyzeBtn.addEventListener('click', () => {
+      if (!latestResults || !latestResults.multiHandLandmarks || latestResults.multiHandLandmarks.length === 0) {
+        readingArea.innerHTML = '<div class="placeholder">No hand detected. Show your palm clearly.</div>';
+        return;
+      }
+
+      const landmarks = latestResults.multiHandLandmarks[0];
+      const handedness = latestResults.multiHandedness[0];
+      // Correct for mirrored video
+      const rawLabel = handedness.label;
+      const userFacing = rawLabel === 'Left' ? 'Right' : 'Left';
+
+      readingArea.innerHTML = generateReading(userFacing, landmarks);
+      statusLine.innerHTML = `Reading complete • <strong>${userFacing} hand</strong>`;
+    });
+  </script>
+</body>
+</html>
