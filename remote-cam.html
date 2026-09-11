@@ -29,9 +29,21 @@
       padding: 20px 16px;
     }
 
+    body.game-mode {
+      padding: 0;
+      overflow: hidden;
+      height: 100vh;
+    }
+
     .container {
       max-width: 900px;
       margin: 0 auto;
+    }
+
+    body.game-mode .container {
+      max-width: none;
+      height: 100vh;
+      margin: 0;
     }
 
     header {
@@ -169,12 +181,6 @@
       gap: 16px;
     }
 
-    @media (min-width: 700px) {
-      .video-grid.two {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
     .video-wrap {
       position: relative;
       background: #000;
@@ -217,14 +223,53 @@
       color: #5b6b88;
     }
 
-    a.link {
-      color: #93c5fd;
-      word-break: break-all;
+    /* Fullscreen game for the person sharing */
+    #gameShell {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: #0a0d12;
+      flex-direction: column;
+    }
+
+    #gameShell.active {
+      display: flex;
+    }
+
+    #gameBar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 16px;
+      background: #121826;
+      border-bottom: 1px solid #243049;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    #gameBar .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    #gameFrame {
+      flex: 1;
+      width: 100%;
+      border: none;
+      background: #000;
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" id="mainUI">
     <header>
       <h1>Remote Cam</h1>
       <p class="subtitle">Share a code • See the other person's live camera</p>
@@ -238,16 +283,15 @@
         <button class="btn-join" id="joinBtn">I will SHOW my camera</button>
       </div>
       <p class="hint">
-        <strong>Watcher</strong> creates a room and gets a code.<br>
-        <strong>Shower</strong> opens this page, enters the code, and starts their camera.
-        The watcher then sees their live video.
+        <strong>Watcher</strong> creates a room and gets a code — they see the other person's camera.<br>
+        <strong>Shower</strong> enters the code, shares camera, then plays a game (they never see their own video).
       </p>
     </div>
 
     <!-- Host panel -->
     <div id="hostPanel" class="card hidden">
       <h2>You are the Watcher</h2>
-      <p class="hint">Share this code (or the link) with the other person. When they join and allow camera, their video will appear below.</p>
+      <p class="hint">Share this code (or the link) with the other person. When they join, their live camera appears below. They will only see a game — not their own face.</p>
       <div class="code-box">
         <span class="room-code" id="roomCodeDisplay">————</span>
         <button class="btn-copy" id="copyCodeBtn">Copy Code</button>
@@ -259,28 +303,36 @@
     <!-- Guest panel -->
     <div id="guestPanel" class="card hidden">
       <h2>You will show your camera</h2>
-      <p class="hint">Enter the code the other person shared with you, then allow camera access.</p>
+      <p class="hint">Enter the code, allow camera, then a game will open. The other person will see your camera — you will only see the game.</p>
       <div class="code-box">
         <input type="text" id="joinCodeInput" placeholder="ENTER CODE" maxlength="8" autocomplete="off" />
-        <button class="btn-join" id="connectBtn">Connect & Start Camera</button>
+        <button class="btn-join" id="connectBtn">Connect & Start</button>
       </div>
       <p class="status" id="guestStatus">Waiting for code…</p>
     </div>
 
-    <!-- Videos -->
+    <!-- Host only: remote video -->
     <div id="videoSection" class="video-grid hidden">
       <div class="video-wrap" id="remoteWrap">
         <video id="remoteVideo" autoplay playsinline></video>
         <div class="video-label" id="remoteLabel">Their camera</div>
       </div>
-      <div class="video-wrap hidden" id="localWrap">
-        <video id="localVideo" autoplay playsinline muted></video>
-        <div class="video-label">Your camera (preview)</div>
-      </div>
     </div>
 
-    <p class="footer-note">Peer-to-peer via WebRTC + PeerJS • No video is stored on any server</p>
+    <p class="footer-note" id="footerNote">Peer-to-peer via WebRTC + PeerJS • No video is stored on any server</p>
   </div>
+
+  <!-- Guest game shell (fullscreen, no self-video) -->
+  <div id="gameShell">
+    <div id="gameBar">
+      <span><span class="dot"></span>Camera shared with watcher · You are in the game</span>
+      <span id="gameBarCode" style="opacity:0.7"></span>
+    </div>
+    <iframe id="gameFrame" src="about:blank" allow="camera; microphone; fullscreen" title="Game"></iframe>
+  </div>
+
+  <!-- Hidden video elements for streaming (guest never sees them) -->
+  <video id="localVideo" autoplay playsinline muted style="display:none;position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
@@ -290,10 +342,13 @@
     const videoSection = document.getElementById('videoSection');
     const remoteVideo = document.getElementById('remoteVideo');
     const localVideo = document.getElementById('localVideo');
-    const localWrap = document.getElementById('localWrap');
     const hostStatus = document.getElementById('hostStatus');
     const guestStatus = document.getElementById('guestStatus');
     const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+    const gameShell = document.getElementById('gameShell');
+    const gameFrame = document.getElementById('gameFrame');
+    const mainUI = document.getElementById('mainUI');
+    const footerNote = document.getElementById('footerNote');
 
     let peer = null;
     let localStream = null;
@@ -317,6 +372,25 @@
       return url.toString();
     }
 
+    // Game URL relative to this page (same repo)
+    function gameUrl() {
+      try {
+        const u = new URL('index.html', window.location.href);
+        return u.toString();
+      } catch {
+        return 'index.html';
+      }
+    }
+
+    function showGameForGuest(code) {
+      document.body.classList.add('game-mode');
+      mainUI.classList.add('hidden');
+      if (footerNote) footerNote.classList.add('hidden');
+      gameShell.classList.add('active');
+      document.getElementById('gameBarCode').textContent = code ? ('Code: ' + code) : '';
+      gameFrame.src = gameUrl();
+    }
+
     // ---------- HOST (Watcher) ----------
     async function startAsHost() {
       roleCard.classList.add('hidden');
@@ -327,18 +401,15 @@
       const code = randomCode();
       roomCodeDisplay.textContent = code;
 
-      peer = new Peer('rc-' + code, {
-        debug: 1
-      });
+      peer = new Peer('rc-' + code, { debug: 1 });
 
-      peer.on('open', (id) => {
+      peer.on('open', () => {
         setStatus(hostStatus, 'Room ready. Share the code: ' + code, 'ok');
       });
 
       peer.on('error', (err) => {
         console.error(err);
         if (err.type === 'unavailable-id') {
-          // rare collision — retry
           peer.destroy();
           startAsHost();
           return;
@@ -346,16 +417,15 @@
         setStatus(hostStatus, 'Error: ' + (err.message || err.type), 'err');
       });
 
-      // When the other person calls us with their stream
       peer.on('call', (call) => {
         setStatus(hostStatus, 'Incoming camera… answering', 'ok');
         currentCall = call;
-        call.answer(); // we don't send our camera; we only watch
+        call.answer(); // watcher does not send video
 
         call.on('stream', (remoteStream) => {
           remoteVideo.srcObject = remoteStream;
           document.getElementById('remoteLabel').textContent = 'Their live camera';
-          setStatus(hostStatus, 'Connected — you are watching their camera', 'ok');
+          setStatus(hostStatus, 'Connected — you are watching their camera (they see a game)', 'ok');
         });
 
         call.on('close', () => {
@@ -379,16 +449,10 @@
       };
     }
 
-    // ---------- GUEST (Shower) ----------
+    // ---------- GUEST (shares camera, plays game) ----------
     async function startAsGuest(prefillCode) {
       roleCard.classList.add('hidden');
       guestPanel.classList.remove('hidden');
-      videoSection.classList.remove('hidden');
-      localWrap.classList.remove('hidden');
-      videoSection.classList.add('two');
-
-      // Guest also sees remote? optional — we keep remote for symmetry but host doesn't send video
-      document.getElementById('remoteLabel').textContent = 'Watcher (no video from them)';
 
       if (prefillCode) {
         document.getElementById('joinCodeInput').value = prefillCode.toUpperCase();
@@ -412,7 +476,9 @@
           video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         });
+        // Keep stream alive but never show it to the guest
         localVideo.srcObject = localStream;
+        localVideo.play().catch(() => {});
       } catch (e) {
         console.error(e);
         setStatus(guestStatus, 'Camera permission denied or unavailable', 'err');
@@ -422,9 +488,7 @@
 
       setStatus(guestStatus, 'Connecting to room…');
 
-      peer = new Peer({
-        debug: 1
-      });
+      peer = new Peer({ debug: 1 });
 
       peer.on('open', () => {
         const hostId = 'rc-' + code;
@@ -439,21 +503,14 @@
           return;
         }
 
-        call.on('stream', (remoteStream) => {
-          // Host usually doesn't send video; ignore if empty
-          if (remoteStream && remoteStream.getTracks().length) {
-            remoteVideo.srcObject = remoteStream;
-          }
-        });
-
         call.on('close', () => {
           setStatus(guestStatus, 'Connection closed', 'err');
         });
 
-        // PeerJS doesn't always fire a clear "connected" for media; use a short delay + status
+        // Switch guest UI to game — they never see their own video
         setTimeout(() => {
-          setStatus(guestStatus, 'Connected — your camera is being shared', 'ok');
-        }, 800);
+          showGameForGuest(code);
+        }, 600);
       });
 
       peer.on('error', (err) => {
@@ -471,14 +528,12 @@
     document.getElementById('hostBtn').onclick = () => startAsHost();
     document.getElementById('joinBtn').onclick = () => startAsGuest();
 
-    // Auto-join if link has ?join=CODE
     const params = new URLSearchParams(window.location.search);
     const joinCode = params.get('join');
     if (joinCode) {
       startAsGuest(joinCode);
     }
 
-    // Cleanup
     window.addEventListener('beforeunload', () => {
       if (currentCall) currentCall.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
