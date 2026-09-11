@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Remote Cam — See Their Camera</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --bg: #0b0f19;
+      --card: #141b2d;
+      --accent: #3b82f6;
+      --accent2: #8b5cf6;
+      --text: #e8eef8;
+      --muted: #8b9bb8;
+      --border: #243049;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: radial-gradient(ellipse at top, #151c30 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px 16px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: 6px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      font-size: 1.1rem;
+      margin-bottom: 14px;
+      color: #93c5fd;
+    }
+
+    .role-btns {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      flex: 1;
+      min-width: 140px;
+      padding: 14px 18px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .btn-host {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+    }
+
+    .btn-join {
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: white;
+    }
+
+    .btn-copy, .btn-share {
+      background: #1e293b;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(59, 130, 246, 0.25);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .hidden { display: none !important; }
+
+    .code-box {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .room-code {
+      font-family: ui-monospace, monospace;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: #93c5fd;
+      background: #0f172a;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    input[type="text"] {
+      flex: 1;
+      min-width: 160px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: var(--text);
+      font-size: 1.1rem;
+      font-family: ui-monospace, monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .status {
+      margin-top: 14px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .status.ok { color: var(--success); }
+    .status.err { color: var(--danger); }
+
+    .video-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 700px) {
+      .video-grid.two {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .video-wrap {
+      position: relative;
+      background: #000;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      aspect-ratio: 4/3;
+    }
+
+    .video-wrap video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scaleX(-1);
+    }
+
+    .video-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .hint {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+
+    .footer-note {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 0.78rem;
+      color: #5b6b88;
+    }
+
+    a.link {
+      color: #93c5fd;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Remote Cam</h1>
+      <p class="subtitle">Share a code • See the other person's live camera</p>
+    </header>
+
+    <!-- Role selection -->
+    <div id="roleCard" class="card">
+      <h2>Choose your role</h2>
+      <div class="role-btns">
+        <button class="btn-host" id="hostBtn">I want to WATCH</button>
+        <button class="btn-join" id="joinBtn">I will SHOW my camera</button>
+      </div>
+      <p class="hint">
+        <strong>Watcher</strong> creates a room and gets a code.<br>
+        <strong>Shower</strong> opens this page, enters the code, and starts their camera.
+        The watcher then sees their live video.
+      </p>
+    </div>
+
+    <!-- Host panel -->
+    <div id="hostPanel" class="card hidden">
+      <h2>You are the Watcher</h2>
+      <p class="hint">Share this code (or the link) with the other person. When they join and allow camera, their video will appear below.</p>
+      <div class="code-box">
+        <span class="room-code" id="roomCodeDisplay">————</span>
+        <button class="btn-copy" id="copyCodeBtn">Copy Code</button>
+        <button class="btn-share" id="copyLinkBtn">Copy Link</button>
+      </div>
+      <p class="status" id="hostStatus">Creating room…</p>
+    </div>
+
+    <!-- Guest panel -->
+    <div id="guestPanel" class="card hidden">
+      <h2>You will show your camera</h2>
+      <p class="hint">Enter the code the other person shared with you, then allow camera access.</p>
+      <div class="code-box">
+        <input type="text" id="joinCodeInput" placeholder="ENTER CODE" maxlength="8" autocomplete="off" />
+        <button class="btn-join" id="connectBtn">Connect & Start Camera</button>
+      </div>
+      <p class="status" id="guestStatus">Waiting for code…</p>
+    </div>
+
+    <!-- Videos -->
+    <div id="videoSection" class="video-grid hidden">
+      <div class="video-wrap" id="remoteWrap">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <div class="video-label" id="remoteLabel">Their camera</div>
+      </div>
+      <div class="video-wrap hidden" id="localWrap">
+        <video id="localVideo" autoplay playsinline muted></video>
+        <div class="video-label">Your camera (preview)</div>
+      </div>
+    </div>
+
+    <p class="footer-note">Peer-to-peer via WebRTC + PeerJS • No video is stored on any server</p>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+    const roleCard = document.getElementById('roleCard');
+    const hostPanel = document.getElementById('hostPanel');
+    const guestPanel = document.getElementById('guestPanel');
+    const videoSection = document.getElementById('videoSection');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const localVideo = document.getElementById('localVideo');
+    const localWrap = document.getElementById('localWrap');
+    const hostStatus = document.getElementById('hostStatus');
+    const guestStatus = document.getElementById('guestStatus');
+    const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+
+    let peer = null;
+    let localStream = null;
+    let currentCall = null;
+
+    function randomCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let s = '';
+      for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+      return s;
+    }
+
+    function setStatus(el, text, type) {
+      el.textContent = text;
+      el.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    function getShareLink(code) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('join', code);
+      return url.toString();
+    }
+
+    // ---------- HOST (Watcher) ----------
+    async function startAsHost() {
+      roleCard.classList.add('hidden');
+      hostPanel.classList.remove('hidden');
+      videoSection.classList.remove('hidden');
+      document.getElementById('remoteLabel').textContent = 'Waiting for their camera…';
+
+      const code = randomCode();
+      roomCodeDisplay.textContent = code;
+
+      peer = new Peer('rc-' + code, {
+        debug: 1
+      });
+
+      peer.on('open', (id) => {
+        setStatus(hostStatus, 'Room ready. Share the code: ' + code, 'ok');
+      });
+
+      peer.on('error', (err) => {
+        console.error(err);
+        if (err.type === 'unavailable-id') {
+          // rare collision — retry
+          peer.destroy();
+          startAsHost();
+          return;
+        }
+        setStatus(hostStatus, 'Error: ' + (err.message || err.type), 'err');
+      });
+
+      // When the other person calls us with their stream
+      peer.on('call', (call) => {
+        setStatus(hostStatus, 'Incoming camera… answering', 'ok');
+        currentCall = call;
+        call.answer(); // we don't send our camera; we only watch
+
+        call.on('stream', (remoteStream) => {
+          remoteVideo.srcObject = remoteStream;
+          document.getElementById('remoteLabel').textContent = 'Their live camera';
+          setStatus(hostStatus, 'Connected — you are watching their camera', 'ok');
+        });
+
+        call.on('close', () => {
+          setStatus(hostStatus, 'They disconnected', 'err');
+          remoteVideo.srcObject = null;
+          document.getElementById('remoteLabel').textContent = 'Disconnected';
+        });
+      });
+
+      document.getElementById('copyCodeBtn').onclick = () => {
+        navigator.clipboard.writeText(code).then(() => {
+          setStatus(hostStatus, 'Code copied!', 'ok');
+        }).catch(() => alert('Code: ' + code));
+      };
+
+      document.getElementById('copyLinkBtn').onclick = () => {
+        const link = getShareLink(code);
+        navigator.clipboard.writeText(link).then(() => {
+          setStatus(hostStatus, 'Link copied! Send it to them.', 'ok');
+        }).catch(() => prompt('Copy this link:', link));
+      };
+    }
+
+    // ---------- GUEST (Shower) ----------
+    async function startAsGuest(prefillCode) {
+      roleCard.classList.add('hidden');
+      guestPanel.classList.remove('hidden');
+      videoSection.classList.remove('hidden');
+      localWrap.classList.remove('hidden');
+      videoSection.classList.add('two');
+
+      // Guest also sees remote? optional — we keep remote for symmetry but host doesn't send video
+      document.getElementById('remoteLabel').textContent = 'Watcher (no video from them)';
+
+      if (prefillCode) {
+        document.getElementById('joinCodeInput').value = prefillCode.toUpperCase();
+      }
+
+      document.getElementById('connectBtn').onclick = connectAsGuest;
+    }
+
+    async function connectAsGuest() {
+      const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+      if (!code || code.length < 4) {
+        setStatus(guestStatus, 'Enter a valid code', 'err');
+        return;
+      }
+
+      document.getElementById('connectBtn').disabled = true;
+      setStatus(guestStatus, 'Starting camera…');
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+        localVideo.srcObject = localStream;
+      } catch (e) {
+        console.error(e);
+        setStatus(guestStatus, 'Camera permission denied or unavailable', 'err');
+        document.getElementById('connectBtn').disabled = false;
+        return;
+      }
+
+      setStatus(guestStatus, 'Connecting to room…');
+
+      peer = new Peer({
+        debug: 1
+      });
+
+      peer.on('open', () => {
+        const hostId = 'rc-' + code;
+        setStatus(guestStatus, 'Calling watcher…');
+
+        const call = peer.call(hostId, localStream);
+        currentCall = call;
+
+        if (!call) {
+          setStatus(guestStatus, 'Could not reach room. Check the code.', 'err');
+          document.getElementById('connectBtn').disabled = false;
+          return;
+        }
+
+        call.on('stream', (remoteStream) => {
+          // Host usually doesn't send video; ignore if empty
+          if (remoteStream && remoteStream.getTracks().length) {
+            remoteVideo.srcObject = remoteStream;
+          }
+        });
+
+        call.on('close', () => {
+          setStatus(guestStatus, 'Connection closed', 'err');
+        });
+
+        // PeerJS doesn't always fire a clear "connected" for media; use a short delay + status
+        setTimeout(() => {
+          setStatus(guestStatus, 'Connected — your camera is being shared', 'ok');
+        }, 800);
+      });
+
+      peer.on('error', (err) => {
+        console.error(err);
+        let msg = err.message || err.type;
+        if (err.type === 'peer-unavailable') {
+          msg = 'Room not found. Ask them to create the room first and share the code again.';
+        }
+        setStatus(guestStatus, 'Error: ' + msg, 'err');
+        document.getElementById('connectBtn').disabled = false;
+      });
+    }
+
+    // ---------- Init ----------
+    document.getElementById('hostBtn').onclick = () => startAsHost();
+    document.getElementById('joinBtn').onclick = () => startAsGuest();
+
+    // Auto-join if link has ?join=CODE
+    const params = new URLSearchParams(window.location.search);
+    const joinCode = params.get('join');
+    if (joinCode) {
+      startAsGuest(joinCode);
+    }
+
+    // Cleanup
+    window.addEventListener('beforeunload', () => {
+      if (currentCall) currentCall.close();
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (peer) peer.destroy();
+    });
+  </script>
+</body>
+</html>
