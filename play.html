@@ -9,302 +9,114 @@
   <meta property="og:description" content="Drive with your hands on an invisible wheel. Free browser game." />
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
     :root {
-      --bg: #0a0d12;
-      --card: #121826;
-      --accent: #4ee08a;
-      --text: #eaf2ff;
-      --muted: #8f9db3;
-      --border: #1e2a3a;
-      --success: #4ee08a;
-      --danger: #ff6a6a;
+      --bg: #0a0d12; --card: #121826; --accent: #4ee08a; --text: #eaf2ff;
+      --muted: #8f9db3; --border: #1e2a3a; --success: #4ee08a; --danger: #ff6a6a;
     }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       font-family: 'Inter', system-ui, sans-serif;
       background: radial-gradient(ellipse at top, #0f1620 0%, var(--bg) 55%);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 20px 16px;
+      color: var(--text); min-height: 100vh; padding: 20px 16px;
     }
-
-    body.game-mode {
-      padding: 0;
-      overflow: hidden;
-      height: 100vh;
-    }
-
+    body.game-mode { padding: 0; overflow: hidden; height: 100vh; }
     .container { max-width: 480px; margin: 0 auto; }
-
-    header {
-      text-align: center;
-      margin-bottom: 28px;
-      margin-top: 24px;
-    }
-
-    h1 {
-      font-size: 1.85rem;
-      font-weight: 700;
-      color: #9dffc0;
-      letter-spacing: -0.02em;
-    }
-
-    .subtitle {
-      color: var(--muted);
-      font-size: 0.95rem;
-      margin-top: 8px;
-      line-height: 1.45;
-    }
-
+    header { text-align: center; margin-bottom: 28px; margin-top: 24px; }
+    h1 { font-size: 1.85rem; font-weight: 700; color: #9dffc0; letter-spacing: -0.02em; }
+    .subtitle { color: var(--muted); font-size: 0.95rem; margin-top: 8px; line-height: 1.45; }
     .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 22px;
-      margin-bottom: 16px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 22px; margin-bottom: 16px;
     }
-
-    .card h2 {
-      font-size: 1.05rem;
-      margin-bottom: 10px;
-      color: #9dffc0;
-    }
-
-    .role-btns {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
+    .card h2 { font-size: 1.05rem; margin-bottom: 10px; color: #9dffc0; }
+    .role-btns { display: flex; flex-direction: column; gap: 10px; }
     button {
-      width: 100%;
-      padding: 14px 18px;
-      border: none;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      transition: all 0.2s;
+      width: 100%; padding: 14px 18px; border: none; border-radius: 12px;
+      font-size: 1rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s;
     }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #4ee08a, #22c55e);
-      color: #0a120e;
-    }
-
-    .btn-secondary {
-      background: #1a2332;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
+    .btn-primary { background: linear-gradient(135deg, #4ee08a, #22c55e); color: #0a120e; }
+    .btn-secondary { background: #1a2332; color: var(--text); border: 1px solid var(--border); }
     .btn-copy {
-      background: #1a2332;
-      color: var(--text);
-      border: 1px solid var(--border);
-      flex: 1;
-      min-width: 100px;
-      width: auto;
+      background: #1a2332; color: var(--text); border: 1px solid var(--border);
+      flex: 1; min-width: 100px; width: auto;
     }
-
     .btn-danger-outline {
-      background: transparent;
-      color: var(--danger);
-      border: 1px solid rgba(255,106,106,0.35);
-      margin-top: 8px;
+      background: transparent; color: var(--danger);
+      border: 1px solid rgba(255,106,106,0.35); margin-top: 8px;
     }
-
+    .btn-row { display: flex; gap: 8px; margin-top: 8px; }
+    .btn-row button { margin-top: 0; }
     button:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(78, 224, 138, 0.2);
+      transform: translateY(-1px); box-shadow: 0 6px 18px rgba(78, 224, 138, 0.2);
     }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none !important;
-    }
-
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
     .hidden { display: none !important; }
-
     .code-box {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-      margin-top: 12px;
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px;
     }
-
     .room-code {
-      font-family: ui-monospace, monospace;
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      color: #9dffc0;
-      background: #0a0d12;
-      padding: 10px 16px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
+      font-family: ui-monospace, monospace; font-size: 1.5rem; font-weight: 700;
+      letter-spacing: 0.12em; color: #9dffc0; background: #0a0d12;
+      padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border);
     }
-
     input[type="text"] {
-      flex: 1;
-      min-width: 140px;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: #0a0d12;
-      color: var(--text);
-      font-size: 1.05rem;
-      font-family: ui-monospace, monospace;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      flex: 1; min-width: 140px; padding: 12px 14px; border-radius: 10px;
+      border: 1px solid var(--border); background: #0a0d12; color: var(--text);
+      font-size: 1.05rem; font-family: ui-monospace, monospace;
+      letter-spacing: 0.08em; text-transform: uppercase;
     }
-
-    input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .status {
-      margin-top: 12px;
-      font-size: 0.88rem;
-      color: var(--muted);
-    }
-
+    input:focus { outline: none; border-color: var(--accent); }
+    .status { margin-top: 12px; font-size: 0.88rem; color: var(--muted); }
     .status.ok { color: var(--success); }
     .status.err { color: var(--danger); }
-
     .video-wrap {
-      position: relative;
-      background: #000;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      aspect-ratio: 4/3;
-      margin-top: 12px;
+      position: relative; background: #000; border-radius: 14px; overflow: hidden;
+      border: 1px solid var(--border); aspect-ratio: 4/3; margin-top: 12px;
     }
-
-    .video-wrap video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      transform: scaleX(-1);
-      background: #000;
+    .video-wrap video, .video-wrap canvas.freeze {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transform: scaleX(-1); background: #000;
     }
-
+    .video-wrap canvas.freeze {
+      position: absolute; inset: 0; z-index: 2;
+    }
+    .video-wrap canvas.freeze.hidden { display: none; }
     .video-label {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.7);
-      padding: 5px 10px;
-      border-radius: 8px;
-      font-size: 0.8rem;
-      font-weight: 600;
+      position: absolute; top: 10px; left: 10px; z-index: 3;
+      background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 8px;
+      font-size: 0.8rem; font-weight: 600;
     }
-
-    .hint {
-      font-size: 0.82rem;
-      color: var(--muted);
-      margin-top: 12px;
-      line-height: 1.5;
-    }
-
-    .footer-note {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 0.75rem;
-      color: #5a6a80;
-    }
-
+    .hint { font-size: 0.82rem; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+    .footer-note { text-align: center; margin-top: 20px; font-size: 0.75rem; color: #5a6a80; }
     #gameShell {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 50;
-      background: #0a0d12;
-      flex-direction: column;
+      display: none; position: fixed; inset: 0; z-index: 50;
+      background: #0a0d12; flex-direction: column;
     }
-
     #gameShell.active { display: flex; }
-
     #gameBar {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 8px 14px;
-      background: #0e141c;
-      border-bottom: 1px solid #1e2a3a;
-      font-size: 0.8rem;
-      color: var(--muted);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 8px 14px; background: #0e141c;
+      border-bottom: 1px solid #1e2a3a; font-size: 0.8rem; color: var(--muted);
     }
-
     #gameBar .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 6px var(--success);
-      display: inline-block;
-      margin-right: 6px;
+      width: 7px; height: 7px; border-radius: 50%; background: var(--success);
+      box-shadow: 0 0 6px var(--success); display: inline-block; margin-right: 6px;
     }
-
-    #gameFrame {
-      flex: 1;
-      width: 100%;
-      border: none;
-      background: #000;
-    }
-
+    #gameFrame { flex: 1; width: 100%; border: none; background: #000; }
     #autoJoinOverlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 40;
+      display: none; position: fixed; inset: 0; z-index: 40;
       background: radial-gradient(ellipse at top, #0f1620 0%, #0a0d12 55%);
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 24px;
+      flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 24px;
     }
-
     #autoJoinOverlay.active { display: flex; }
-
-    #autoJoinOverlay h2 {
-      font-size: 1.5rem;
-      margin-bottom: 10px;
-      color: #9dffc0;
-    }
-
-    #autoJoinOverlay p {
-      color: var(--muted);
-      font-size: 0.95rem;
-      max-width: 320px;
-      line-height: 1.5;
-    }
-
+    #autoJoinOverlay h2 { font-size: 1.5rem; margin-bottom: 10px; color: #9dffc0; }
+    #autoJoinOverlay p { color: var(--muted); font-size: 0.95rem; max-width: 320px; line-height: 1.5; }
     .spinner {
-      width: 36px;
-      height: 36px;
-      border: 3px solid #1e2a3a;
-      border-top-color: #4ee08a;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 18px;
+      width: 36px; height: 36px; border: 3px solid #1e2a3a; border-top-color: #4ee08a;
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 18px;
     }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -322,12 +134,12 @@
         <button class="btn-secondary" id="joinBtn">Join with code</button>
       </div>
       <p class="hint" id="resumeHint" style="display:none;"></p>
-      <p class="hint">Create a room, share the link. Close the tab anytime — reopen this page and tap <strong>Resume room</strong> to use the same code again.</p>
+      <p class="hint">Create a room and share the link. Use <strong>Resume room</strong> after closing the tab. <strong>Delete room</strong> removes the saved code.</p>
     </div>
 
     <div id="hostPanel" class="card hidden">
       <h2>Your room is ready</h2>
-      <p class="hint">This room is saved on this device. If you close the tab, open Hand Drive again and press <strong>Resume room</strong>.</p>
+      <p class="hint">Room is saved on this device. Close anytime → open Hand Drive → Resume room. Same share link keeps working.</p>
       <div class="code-box">
         <span class="room-code" id="roomCodeDisplay">————</span>
         <button class="btn-copy" id="copyCodeBtn">Copy code</button>
@@ -337,10 +149,14 @@
       <div id="videoSection" class="hidden">
         <div class="video-wrap">
           <video id="remoteVideo" autoplay playsinline muted></video>
+          <canvas id="freezeCanvas" class="freeze hidden"></canvas>
           <div class="video-label" id="remoteLabel">Waiting…</div>
         </div>
       </div>
-      <button class="btn-danger-outline" id="newRoomBtn">Create a different room</button>
+      <div class="btn-row">
+        <button class="btn-danger-outline" id="deleteRoomBtn">Delete room</button>
+        <button class="btn-secondary" id="newRoomBtn" style="border:1px solid var(--border);">New room</button>
+      </div>
     </div>
 
     <div id="guestPanel" class="card hidden">
@@ -381,6 +197,7 @@
     const guestPanel = document.getElementById('guestPanel');
     const videoSection = document.getElementById('videoSection');
     const remoteVideo = document.getElementById('remoteVideo');
+    const freezeCanvas = document.getElementById('freezeCanvas');
     const localVideo = document.getElementById('localVideo');
     const hostStatus = document.getElementById('hostStatus');
     const guestStatus = document.getElementById('guestStatus');
@@ -401,59 +218,41 @@
     let lastVideoTime = 0;
     let freezeCount = 0;
     let activeRoomCode = null;
+    let reconnectAttempts = 0;
+    let intentionalDestroy = false;
 
     const PEER_CONFIG = {
-      debug: 1,
+      debug: 0,
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
           {
-            urls: 'turn:openrelay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turn:openrelay.metered.ca:80?transport=tcp',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+            urls: [
+              'turn:openrelay.metered.ca:80',
+              'turn:openrelay.metered.ca:80?transport=tcp',
+              'turn:openrelay.metered.ca:443',
+              'turns:openrelay.metered.ca:443?transport=tcp'
+            ],
             username: 'openrelayproject',
             credential: 'openrelayproject'
           }
         ],
-        iceCandidatePoolSize: 4,
+        iceCandidatePoolSize: 2,
         sdpSemantics: 'unified-plan'
       }
     };
 
     function saveRoom(code) {
-      try {
-        localStorage.setItem(STORAGE_KEY, code);
-      } catch (e) {}
+      try { localStorage.setItem(STORAGE_KEY, code); } catch (e) {}
       activeRoomCode = code;
     }
-
     function loadSavedRoom() {
-      try {
-        return (localStorage.getItem(STORAGE_KEY) || '').toUpperCase() || null;
-      } catch (e) {
-        return null;
-      }
+      try { return (localStorage.getItem(STORAGE_KEY) || '').toUpperCase() || null; }
+      catch (e) { return null; }
     }
-
     function clearSavedRoom() {
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch (e) {}
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
       activeRoomCode = null;
     }
 
@@ -476,19 +275,9 @@
       return url.toString();
     }
 
-    function getHostResumeLink(code) {
-      const url = new URL(window.location.href);
-      url.search = '';
-      url.searchParams.set('host', code);
-      return url.toString();
-    }
-
     function gameUrl() {
-      try {
-        return new URL('index.html', window.location.href).toString();
-      } catch {
-        return 'index.html';
-      }
+      try { return new URL('index.html', window.location.href).toString(); }
+      catch { return 'index.html'; }
     }
 
     function hasActiveVideo(stream) {
@@ -496,13 +285,49 @@
       return stream.getVideoTracks().some(t => t.readyState === 'live' && t.enabled);
     }
 
+    /** Capture last frame so screen does not go black when friend leaves */
+    function freezeLastFrame() {
+      try {
+        const w = remoteVideo.videoWidth;
+        const h = remoteVideo.videoHeight;
+        if (!w || !h) return false;
+        freezeCanvas.width = w;
+        freezeCanvas.height = h;
+        const ctx = freezeCanvas.getContext('2d');
+        ctx.drawImage(remoteVideo, 0, 0, w, h);
+        freezeCanvas.classList.remove('hidden');
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function clearFrozenFrame() {
+      freezeCanvas.classList.add('hidden');
+      const ctx = freezeCanvas.getContext('2d');
+      ctx.clearRect(0, 0, freezeCanvas.width, freezeCanvas.height);
+    }
+
+    function onPlayerDisconnected(reason) {
+      stopFreezeWatch();
+      const froze = freezeLastFrame();
+      document.getElementById('remoteLabel').textContent = froze ? 'Last frame (disconnected)' : 'Disconnected';
+      setStatus(hostStatus, 'Player left — last frame kept. Waiting for next join…', 'err');
+      // Keep srcObject briefly then clear live decode; canvas holds the picture
+      setTimeout(() => {
+        try { remoteVideo.srcObject = null; } catch (e) {}
+      }, 100);
+      currentCall = null;
+    }
+
     function attachRemoteStream(stream) {
       if (!hasActiveVideo(stream)) {
         document.getElementById('remoteLabel').textContent = 'No video track';
-        setStatus(hostStatus, 'Connected but no camera track from friend', 'err');
+        setStatus(hostStatus, 'Connected but no camera from friend', 'err');
         return;
       }
 
+      clearFrozenFrame();
       remoteVideo.srcObject = stream;
       remoteVideo.muted = true;
       remoteVideo.playsInline = true;
@@ -514,17 +339,18 @@
       });
 
       stream.getVideoTracks().forEach(track => {
-        track.onmute = () => { document.getElementById('remoteLabel').textContent = 'Camera muted'; };
+        track.onmute = () => {
+          document.getElementById('remoteLabel').textContent = 'Camera muted';
+        };
         track.onunmute = () => {
           document.getElementById('remoteLabel').textContent = 'Live';
           remoteVideo.play().catch(() => {});
         };
-        track.onended = () => {
-          document.getElementById('remoteLabel').textContent = 'Camera ended';
-          setStatus(hostStatus, 'Friend camera stopped — ask them to reopen the link', 'err');
-        };
+        track.onended = () => onPlayerDisconnected('track-ended');
       });
 
+      document.getElementById('remoteLabel').textContent = 'Live';
+      setStatus(hostStatus, 'Connected — friend is playing', 'ok');
       startFreezeWatch();
     }
 
@@ -533,40 +359,25 @@
       lastVideoTime = 0;
       freezeCount = 0;
       freezeTimer = setInterval(() => {
+        if (!remoteVideo.srcObject || !freezeCanvas.classList.contains('hidden') === false && freezeCanvas.width) {
+          // if already showing freeze canvas from disconnect, skip
+        }
         if (!remoteVideo.srcObject) return;
         const t = remoteVideo.currentTime;
-        const lookingBlack = remoteVideo.videoWidth === 0;
-        if ((t === lastVideoTime && !remoteVideo.paused) || lookingBlack) {
+        if (t === lastVideoTime && !remoteVideo.paused && remoteVideo.videoWidth > 0) {
           freezeCount++;
-          if (freezeCount === 3) {
+          if (freezeCount >= 4) {
             remoteVideo.play().catch(() => {});
-            document.getElementById('remoteLabel').textContent = 'Reconnecting…';
-          }
-          if (freezeCount >= 6) {
-            const s = remoteVideo.srcObject;
-            remoteVideo.srcObject = null;
-            setTimeout(() => {
-              remoteVideo.srcObject = s;
-              remoteVideo.play().catch(() => {});
-              freezeCount = 0;
-              document.getElementById('remoteLabel').textContent = 'Live';
-            }, 250);
           }
         } else {
           freezeCount = 0;
-          if (document.getElementById('remoteLabel').textContent === 'Reconnecting…') {
-            document.getElementById('remoteLabel').textContent = 'Live';
-          }
         }
         lastVideoTime = t;
-      }, 1000);
+      }, 1200);
     }
 
     function stopFreezeWatch() {
-      if (freezeTimer) {
-        clearInterval(freezeTimer);
-        freezeTimer = null;
-      }
+      if (freezeTimer) { clearInterval(freezeTimer); freezeTimer = null; }
     }
 
     function tryAutoStartGame() {
@@ -575,19 +386,13 @@
           const doc = gameFrame.contentDocument || gameFrame.contentWindow.document;
           if (!doc) return false;
           const btn = doc.getElementById('start-btn');
-          if (btn && !btn.disabled) {
-            btn.click();
-            return true;
-          }
+          if (btn && !btn.disabled) { btn.click(); return true; }
         } catch (e) {}
         return false;
       };
       if (attempt()) return;
       let n = 0;
-      const t = setInterval(() => {
-        n++;
-        if (attempt() || n > 20) clearInterval(t);
-      }, 300);
+      const t = setInterval(() => { n++; if (attempt() || n > 20) clearInterval(t); }, 300);
     }
 
     function showGameForGuest(code) {
@@ -604,37 +409,67 @@
 
     function bindHostCopy(code) {
       document.getElementById('copyCodeBtn').onclick = () => {
-        navigator.clipboard.writeText(code).then(() => {
-          setStatus(hostStatus, 'Code copied!', 'ok');
-        }).catch(() => alert(code));
+        navigator.clipboard.writeText(code).then(() => setStatus(hostStatus, 'Code copied!', 'ok'))
+          .catch(() => alert(code));
       };
       document.getElementById('copyLinkBtn').onclick = () => {
         const link = getShareLink(code);
-        navigator.clipboard.writeText(link).then(() => {
-          setStatus(hostStatus, 'Link copied! Same link works after you Resume room.', 'ok');
-        }).catch(() => prompt('Copy link:', link));
+        navigator.clipboard.writeText(link).then(() => setStatus(hostStatus, 'Link copied!', 'ok'))
+          .catch(() => prompt('Copy link:', link));
       };
     }
 
-    /** @param {string|null} existingCode - reuse saved code when resuming */
+    function destroyPeer() {
+      intentionalDestroy = true;
+      try { if (currentCall) currentCall.close(); } catch (e) {}
+      try { if (peer) peer.destroy(); } catch (e) {}
+      peer = null;
+      currentCall = null;
+      intentionalDestroy = false;
+    }
+
+    function goHome() {
+      destroyPeer();
+      stopFreezeWatch();
+      clearFrozenFrame();
+      remoteVideo.srcObject = null;
+      hostPanel.classList.add('hidden');
+      guestPanel.classList.add('hidden');
+      roleCard.classList.remove('hidden');
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.delete('host');
+        u.searchParams.delete('play');
+        history.replaceState({}, '', u.pathname + (u.search || ''));
+      } catch (e) {}
+      showResumeOption();
+    }
+
+    function deleteRoom() {
+      if (!confirm('Delete this room? The old link will stop working.')) return;
+      clearSavedRoom();
+      clearFrozenFrame();
+      goHome();
+    }
+
     async function startAsHost(existingCode) {
       roleCard.classList.add('hidden');
       hostPanel.classList.remove('hidden');
       videoSection.classList.remove('hidden');
       document.getElementById('remoteLabel').textContent = 'Waiting for player…';
-      remoteVideo.srcObject = null;
-
-      if (peer) {
-        try { peer.destroy(); } catch (e) {}
-        peer = null;
+      // Keep frozen frame if resuming with one already shown
+      if (freezeCanvas.classList.contains('hidden')) {
+        remoteVideo.srcObject = null;
       }
+
+      destroyPeer();
 
       const code = (existingCode || randomCode()).toUpperCase();
       roomCodeDisplay.textContent = code;
       saveRoom(code);
       bindHostCopy(code);
+      reconnectAttempts = 0;
 
-      // Update URL so refresh keeps the same room
       try {
         const u = new URL(window.location.href);
         u.searchParams.delete('play');
@@ -642,44 +477,55 @@
         history.replaceState({}, '', u.toString());
       } catch (e) {}
 
-      setStatus(hostStatus, existingCode ? 'Resuming room…' : 'Creating room…');
+      setStatus(hostStatus, existingCode ? 'Opening room…' : 'Creating room…');
 
       peer = new Peer('hd-' + code, PEER_CONFIG);
 
-      peer.on('open', () => {
+      peer.on('open', (id) => {
+        reconnectAttempts = 0;
         setStatus(hostStatus, existingCode
-          ? 'Room resumed — same link still works'
+          ? 'Room online — same link works'
           : 'Share the link with your friend', 'ok');
       });
 
       peer.on('error', (err) => {
         console.error(err);
         if (err.type === 'unavailable-id') {
-          // Someone else still holding ID, or race — wait and retry same code
-          setStatus(hostStatus, 'Room busy — retrying in 2s…', 'err');
-          setTimeout(() => {
-            try { peer.destroy(); } catch (e) {}
-            startAsHost(code);
-          }, 2000);
+          setStatus(hostStatus, 'Room id busy — retrying…', 'err');
+          setTimeout(() => startAsHost(code), 1500);
+          return;
+        }
+        if (err.type === 'network' || err.type === 'server-error') {
+          setStatus(hostStatus, 'Server issue — retrying…', 'err');
           return;
         }
         setStatus(hostStatus, 'Error: ' + (err.message || err.type), 'err');
       });
 
       peer.on('disconnected', () => {
-        setStatus(hostStatus, 'Network blip — reconnecting…', 'err');
-        try { peer.reconnect(); } catch (e) {}
+        if (intentionalDestroy) return;
+        // Quiet auto-reconnect — PeerJS cloud drops often
+        reconnectAttempts++;
+        if (reconnectAttempts <= 8) {
+          setStatus(hostStatus, 'Reconnecting…', 'err');
+          try { peer.reconnect(); } catch (e) {
+            setTimeout(() => startAsHost(code), 2000);
+          }
+        } else {
+          setStatus(hostStatus, 'Connection lost. Tap Resume room.', 'err');
+        }
       });
 
       peer.on('call', (call) => {
         setStatus(hostStatus, 'Player joining…', 'ok');
+        if (currentCall) {
+          try { currentCall.close(); } catch (e) {}
+        }
         currentCall = call;
         call.answer();
 
         call.on('stream', (remoteStream) => {
           attachRemoteStream(remoteStream);
-          document.getElementById('remoteLabel').textContent = 'Live';
-          setStatus(hostStatus, 'Connected — friend is playing', 'ok');
         });
 
         try {
@@ -688,32 +534,20 @@
             pc.oniceconnectionstatechange = () => {
               const st = pc.iceConnectionState;
               if (st === 'failed') {
-                setStatus(hostStatus, 'Media failed. Try same Wi‑Fi or new link.', 'err');
-                document.getElementById('remoteLabel').textContent = 'Failed';
-              } else if (st === 'connected' || st === 'completed') {
-                setStatus(hostStatus, 'Connected — friend is playing', 'ok');
+                onPlayerDisconnected('ice-failed');
+                setStatus(hostStatus, 'Media failed. Friend can rejoin with same link.', 'err');
               }
             };
           }
         } catch (e) {}
 
-        call.on('close', () => {
-          stopFreezeWatch();
-          setStatus(hostStatus, 'Player left — room still open, they can rejoin', 'err');
-          remoteVideo.srcObject = null;
-          document.getElementById('remoteLabel').textContent = 'Waiting…';
-        });
-
-        call.on('error', (err) => {
-          console.error('call error', err);
-          setStatus(hostStatus, 'Call error — ask them to refresh the link', 'err');
-        });
+        call.on('close', () => onPlayerDisconnected('close'));
+        call.on('error', () => onPlayerDisconnected('error'));
       });
     }
 
     async function startAsGuest(prefillCode, autoStart) {
       roleCard.classList.add('hidden');
-
       if (autoStart && prefillCode) {
         mainUI.classList.add('hidden');
         autoJoinOverlay.classList.add('active');
@@ -722,11 +556,8 @@
         setTimeout(() => connectAsGuest(true), 350);
         return;
       }
-
       guestPanel.classList.remove('hidden');
-      if (prefillCode) {
-        document.getElementById('joinCodeInput').value = prefillCode.toUpperCase();
-      }
+      if (prefillCode) document.getElementById('joinCodeInput').value = prefillCode.toUpperCase();
       document.getElementById('connectBtn').onclick = () => connectAsGuest(false);
     }
 
@@ -736,15 +567,12 @@
         if (fromAuto) {
           autoJoinText.textContent = 'Invalid link.';
           autoJoinText.style.color = 'var(--danger)';
-        } else {
-          setStatus(guestStatus, 'Enter a valid code', 'err');
-        }
+        } else setStatus(guestStatus, 'Enter a valid code', 'err');
         return;
       }
 
       const connectBtn = document.getElementById('connectBtn');
       if (connectBtn) connectBtn.disabled = true;
-
       if (fromAuto) autoJoinText.textContent = 'Allow camera when asked…';
       else setStatus(guestStatus, 'Starting…');
 
@@ -760,27 +588,19 @@
         });
         localVideo.srcObject = localStream;
         await localVideo.play().catch(() => {});
-
         localStream.getVideoTracks().forEach(track => {
           try {
             track.contentHint = 'motion';
             track.applyConstraints({
               frameRate: { ideal: 15, max: 20 },
-              width: { ideal: 480 },
-              height: { ideal: 360 }
+              width: { ideal: 480 }, height: { ideal: 360 }
             }).catch(() => {});
           } catch (e) {}
         });
       } catch (e) {
-        console.error(e);
         const msg = 'Camera needed to play. Allow camera and refresh.';
-        if (fromAuto) {
-          autoJoinText.textContent = msg;
-          autoJoinText.style.color = 'var(--danger)';
-        } else {
-          setStatus(guestStatus, msg, 'err');
-          if (connectBtn) connectBtn.disabled = false;
-        }
+        if (fromAuto) { autoJoinText.textContent = msg; autoJoinText.style.color = 'var(--danger)'; }
+        else { setStatus(guestStatus, msg, 'err'); if (connectBtn) connectBtn.disabled = false; }
         return;
       }
 
@@ -790,19 +610,12 @@
       peer = new Peer(PEER_CONFIG);
 
       peer.on('open', () => {
-        const hostId = 'hd-' + code;
-        const call = peer.call(hostId, localStream, { metadata: { role: 'player' } });
+        const call = peer.call('hd-' + code, localStream, { metadata: { role: 'player' } });
         currentCall = call;
-
         if (!call) {
           const msg = 'Room not found. Friend must open/resume the room first.';
-          if (fromAuto) {
-            autoJoinText.textContent = msg;
-            autoJoinText.style.color = 'var(--danger)';
-          } else {
-            setStatus(guestStatus, msg, 'err');
-            if (connectBtn) connectBtn.disabled = false;
-          }
+          if (fromAuto) { autoJoinText.textContent = msg; autoJoinText.style.color = 'var(--danger)'; }
+          else { setStatus(guestStatus, msg, 'err'); if (connectBtn) connectBtn.disabled = false; }
           return;
         }
 
@@ -824,32 +637,21 @@
         setTimeout(limitBitrate, 800);
         setTimeout(limitBitrate, 2500);
 
-        call.on('close', () => {
-          if (!fromAuto) setStatus(guestStatus, 'Disconnected', 'err');
-        });
-
-        call.on('error', (err) => console.error('call error', err));
-
+        call.on('close', () => { if (!fromAuto) setStatus(guestStatus, 'Disconnected', 'err'); });
+        call.on('error', (err) => console.error(err));
         setTimeout(() => showGameForGuest(code), 500);
       });
 
-      peer.on('disconnected', () => {
-        try { peer.reconnect(); } catch (e) {}
-      });
+      peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} });
 
       peer.on('error', (err) => {
         console.error(err);
         let msg = err.message || err.type;
         if (err.type === 'peer-unavailable') {
-          msg = 'Room offline. Ask your friend to open Hand Drive and tap Resume room.';
+          msg = 'Room offline. Ask your friend to open Hand Drive and Resume room.';
         }
-        if (fromAuto) {
-          autoJoinText.textContent = msg;
-          autoJoinText.style.color = 'var(--danger)';
-        } else {
-          setStatus(guestStatus, msg, 'err');
-          if (connectBtn) connectBtn.disabled = false;
-        }
+        if (fromAuto) { autoJoinText.textContent = msg; autoJoinText.style.color = 'var(--danger)'; }
+        else { setStatus(guestStatus, msg, 'err'); if (connectBtn) connectBtn.disabled = false; }
       });
     }
 
@@ -859,7 +661,7 @@
         resumeBtn.style.display = 'block';
         resumeBtn.textContent = 'Resume room ' + saved;
         resumeHint.style.display = 'block';
-        resumeHint.innerHTML = 'Last room on this device: <strong>' + saved + '</strong>. Same share link still works after resume.';
+        resumeHint.innerHTML = 'Saved room: <strong>' + saved + '</strong>. Same share link works after resume.';
         resumeBtn.onclick = () => startAsHost(saved);
       } else {
         resumeBtn.style.display = 'none';
@@ -869,45 +671,35 @@
 
     document.getElementById('hostBtn').onclick = () => startAsHost(null);
     document.getElementById('joinBtn').onclick = () => startAsGuest(null, false);
+    document.getElementById('deleteRoomBtn').onclick = () => deleteRoom();
     document.getElementById('newRoomBtn').onclick = () => {
+      if (!confirm('Create a new room? Old link will stop working.')) return;
       clearSavedRoom();
-      if (peer) try { peer.destroy(); } catch (e) {}
-      peer = null;
+      clearFrozenFrame();
+      destroyPeer();
       stopFreezeWatch();
       remoteVideo.srcObject = null;
-      hostPanel.classList.add('hidden');
-      roleCard.classList.remove('hidden');
-      try {
-        const u = new URL(window.location.href);
-        u.searchParams.delete('host');
-        history.replaceState({}, '', u.pathname + u.search);
-      } catch (e) {}
-      showResumeOption();
+      startAsHost(null);
     };
 
     const params = new URLSearchParams(window.location.search);
     const playCode = params.get('play') || params.get('join');
     const hostCode = params.get('host');
 
-    if (playCode) {
-      startAsGuest(playCode, true);
-    } else if (hostCode) {
-      startAsHost(hostCode.toUpperCase());
-    } else {
-      showResumeOption();
-    }
+    if (playCode) startAsGuest(playCode, true);
+    else if (hostCode) startAsHost(hostCode.toUpperCase());
+    else showResumeOption();
 
     window.addEventListener('beforeunload', () => {
       stopFreezeWatch();
-      if (currentCall) currentCall.close();
-      if (localStream) localStream.getTracks().forEach(t => t.stop());
-      if (peer) peer.destroy();
+      intentionalDestroy = true;
+      try { if (currentCall) currentCall.close(); } catch (e) {}
+      try { if (localStream) localStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+      try { if (peer) peer.destroy(); } catch (e) {}
     });
 
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && remoteVideo.srcObject) {
-        remoteVideo.play().catch(() => {});
-      }
+      if (!document.hidden && remoteVideo.srcObject) remoteVideo.play().catch(() => {});
     });
   </script>
 </body>
