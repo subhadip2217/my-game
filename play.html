@@ -111,6 +111,13 @@
       width: auto;
     }
 
+    .btn-danger-outline {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid rgba(255,106,106,0.35);
+      margin-top: 8px;
+    }
+
     button:hover:not(:disabled) {
       transform: translateY(-1px);
       box-shadow: 0 6px 18px rgba(78, 224, 138, 0.2);
@@ -310,15 +317,17 @@
     <div id="roleCard" class="card">
       <h2>Start</h2>
       <div class="role-btns">
+        <button class="btn-primary" id="resumeBtn" style="display:none;">Resume room</button>
         <button class="btn-primary" id="hostBtn">Create room & invite</button>
         <button class="btn-secondary" id="joinBtn">Join with code</button>
       </div>
-      <p class="hint">Create a room, share the link. Your friend opens it and plays instantly.</p>
+      <p class="hint" id="resumeHint" style="display:none;"></p>
+      <p class="hint">Create a room, share the link. Close the tab anytime — reopen this page and tap <strong>Resume room</strong> to use the same code again.</p>
     </div>
 
     <div id="hostPanel" class="card hidden">
       <h2>Your room is ready</h2>
-      <p class="hint">Send the link to your friend. When they open it, the game starts for them and you can watch.</p>
+      <p class="hint">This room is saved on this device. If you close the tab, open Hand Drive again and press <strong>Resume room</strong>.</p>
       <div class="code-box">
         <span class="room-code" id="roomCodeDisplay">————</span>
         <button class="btn-copy" id="copyCodeBtn">Copy code</button>
@@ -331,6 +340,7 @@
           <div class="video-label" id="remoteLabel">Waiting…</div>
         </div>
       </div>
+      <button class="btn-danger-outline" id="newRoomBtn">Create a different room</button>
     </div>
 
     <div id="guestPanel" class="card hidden">
@@ -364,6 +374,8 @@
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
+    const STORAGE_KEY = 'handdrive_room_code';
+
     const roleCard = document.getElementById('roleCard');
     const hostPanel = document.getElementById('hostPanel');
     const guestPanel = document.getElementById('guestPanel');
@@ -379,6 +391,8 @@
     const footerNote = document.getElementById('footerNote');
     const autoJoinOverlay = document.getElementById('autoJoinOverlay');
     const autoJoinText = document.getElementById('autoJoinText');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const resumeHint = document.getElementById('resumeHint');
 
     let peer = null;
     let localStream = null;
@@ -386,13 +400,8 @@
     let freezeTimer = null;
     let lastVideoTime = 0;
     let freezeCount = 0;
+    let activeRoomCode = null;
 
-    /*
-      STUN finds a direct path when possible.
-      TURN relays video when phones are on different mobile networks / strict NAT
-      (this is why same-device worked but friend on phone showed black "Live").
-      OpenRelay free public TURN — fine for personal use; for heavy production use your own.
-    */
     const PEER_CONFIG = {
       debug: 1,
       config: {
@@ -426,6 +435,28 @@
       }
     };
 
+    function saveRoom(code) {
+      try {
+        localStorage.setItem(STORAGE_KEY, code);
+      } catch (e) {}
+      activeRoomCode = code;
+    }
+
+    function loadSavedRoom() {
+      try {
+        return (localStorage.getItem(STORAGE_KEY) || '').toUpperCase() || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function clearSavedRoom() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
+      activeRoomCode = null;
+    }
+
     function randomCode() {
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let s = '';
@@ -440,7 +471,15 @@
 
     function getShareLink(code) {
       const url = new URL(window.location.href);
+      url.search = '';
       url.searchParams.set('play', code);
+      return url.toString();
+    }
+
+    function getHostResumeLink(code) {
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.searchParams.set('host', code);
       return url.toString();
     }
 
@@ -454,8 +493,7 @@
 
     function hasActiveVideo(stream) {
       if (!stream) return false;
-      const tracks = stream.getVideoTracks();
-      return tracks.some(t => t.readyState === 'live' && t.enabled);
+      return stream.getVideoTracks().some(t => t.readyState === 'live' && t.enabled);
     }
 
     function attachRemoteStream(stream) {
@@ -470,41 +508,22 @@
       remoteVideo.playsInline = true;
       remoteVideo.setAttribute('playsinline', '');
       remoteVideo.setAttribute('webkit-playsinline', '');
-
-      const playPromise = remoteVideo.play();
-      if (playPromise && playPromise.catch) {
-        playPromise.catch(() => {
-          // Autoplay blocked — still try once user interacts
-          document.getElementById('remoteLabel').textContent = 'Tap video to play';
-          remoteVideo.onclick = () => remoteVideo.play().catch(() => {});
-        });
-      }
+      remoteVideo.play().catch(() => {
+        document.getElementById('remoteLabel').textContent = 'Tap video to play';
+        remoteVideo.onclick = () => remoteVideo.play().catch(() => {});
+      });
 
       stream.getVideoTracks().forEach(track => {
-        track.onmute = () => {
-          document.getElementById('remoteLabel').textContent = 'Camera muted';
-        };
+        track.onmute = () => { document.getElementById('remoteLabel').textContent = 'Camera muted'; };
         track.onunmute = () => {
           document.getElementById('remoteLabel').textContent = 'Live';
           remoteVideo.play().catch(() => {});
         };
         track.onended = () => {
           document.getElementById('remoteLabel').textContent = 'Camera ended';
-          setStatus(hostStatus, 'Friend camera stopped', 'err');
+          setStatus(hostStatus, 'Friend camera stopped — ask them to reopen the link', 'err');
         };
       });
-
-      // Limit bitrate on receive side negotiation if we can influence senders (guest sets mainly)
-      try {
-        const pc = currentCall && currentCall.peerConnection;
-        if (pc) {
-          pc.getReceivers().forEach(r => {
-            if (r.track && r.track.kind === 'video') {
-              // nothing critical
-            }
-          });
-        }
-      } catch (e) {}
 
       startFreezeWatch();
     }
@@ -517,7 +536,6 @@
         if (!remoteVideo.srcObject) return;
         const t = remoteVideo.currentTime;
         const lookingBlack = remoteVideo.videoWidth === 0;
-
         if ((t === lastVideoTime && !remoteVideo.paused) || lookingBlack) {
           freezeCount++;
           if (freezeCount === 3) {
@@ -580,7 +598,6 @@
       gameShell.classList.add('active');
       document.getElementById('gameBarCode').textContent = code ? ('Room ' + code) : '';
       document.title = 'Hand Drive';
-
       gameFrame.onload = () => tryAutoStartGame();
       gameFrame.src = gameUrl();
     }
@@ -594,32 +611,56 @@
       document.getElementById('copyLinkBtn').onclick = () => {
         const link = getShareLink(code);
         navigator.clipboard.writeText(link).then(() => {
-          setStatus(hostStatus, 'Link copied!', 'ok');
+          setStatus(hostStatus, 'Link copied! Same link works after you Resume room.', 'ok');
         }).catch(() => prompt('Copy link:', link));
       };
     }
 
-    async function startAsHost() {
+    /** @param {string|null} existingCode - reuse saved code when resuming */
+    async function startAsHost(existingCode) {
       roleCard.classList.add('hidden');
       hostPanel.classList.remove('hidden');
       videoSection.classList.remove('hidden');
       document.getElementById('remoteLabel').textContent = 'Waiting for player…';
+      remoteVideo.srcObject = null;
 
-      const code = randomCode();
+      if (peer) {
+        try { peer.destroy(); } catch (e) {}
+        peer = null;
+      }
+
+      const code = (existingCode || randomCode()).toUpperCase();
       roomCodeDisplay.textContent = code;
+      saveRoom(code);
       bindHostCopy(code);
+
+      // Update URL so refresh keeps the same room
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.delete('play');
+        u.searchParams.set('host', code);
+        history.replaceState({}, '', u.toString());
+      } catch (e) {}
+
+      setStatus(hostStatus, existingCode ? 'Resuming room…' : 'Creating room…');
 
       peer = new Peer('hd-' + code, PEER_CONFIG);
 
       peer.on('open', () => {
-        setStatus(hostStatus, 'Share the link with your friend', 'ok');
+        setStatus(hostStatus, existingCode
+          ? 'Room resumed — same link still works'
+          : 'Share the link with your friend', 'ok');
       });
 
       peer.on('error', (err) => {
         console.error(err);
         if (err.type === 'unavailable-id') {
-          peer.destroy();
-          startAsHost();
+          // Someone else still holding ID, or race — wait and retry same code
+          setStatus(hostStatus, 'Room busy — retrying in 2s…', 'err');
+          setTimeout(() => {
+            try { peer.destroy(); } catch (e) {}
+            startAsHost(code);
+          }, 2000);
           return;
         }
         setStatus(hostStatus, 'Error: ' + (err.message || err.type), 'err');
@@ -631,10 +672,8 @@
       });
 
       peer.on('call', (call) => {
-        setStatus(hostStatus, 'Player joining… (may take a few seconds on mobile)', 'ok');
+        setStatus(hostStatus, 'Player joining…', 'ok');
         currentCall = call;
-
-        // Answer with empty stream (watcher only receives)
         call.answer();
 
         call.on('stream', (remoteStream) => {
@@ -643,22 +682,16 @@
           setStatus(hostStatus, 'Connected — friend is playing', 'ok');
         });
 
-        // ICE connection state hints
         try {
           const pc = call.peerConnection;
           if (pc) {
             pc.oniceconnectionstatechange = () => {
               const st = pc.iceConnectionState;
-              console.log('ICE:', st);
-              if (st === 'connected' || st === 'completed') {
-                setStatus(hostStatus, 'Connected — friend is playing', 'ok');
-              } else if (st === 'checking') {
-                setStatus(hostStatus, 'Connecting media…', 'ok');
-              } else if (st === 'failed') {
-                setStatus(hostStatus, 'Media failed. Both try same Wi‑Fi or refresh link.', 'err');
+              if (st === 'failed') {
+                setStatus(hostStatus, 'Media failed. Try same Wi‑Fi or new link.', 'err');
                 document.getElementById('remoteLabel').textContent = 'Failed';
-              } else if (st === 'disconnected') {
-                setStatus(hostStatus, 'Media disconnected — waiting…', 'err');
+              } else if (st === 'connected' || st === 'completed') {
+                setStatus(hostStatus, 'Connected — friend is playing', 'ok');
               }
             };
           }
@@ -666,9 +699,9 @@
 
         call.on('close', () => {
           stopFreezeWatch();
-          setStatus(hostStatus, 'Player left', 'err');
+          setStatus(hostStatus, 'Player left — room still open, they can rejoin', 'err');
           remoteVideo.srcObject = null;
-          document.getElementById('remoteLabel').textContent = 'Disconnected';
+          document.getElementById('remoteLabel').textContent = 'Waiting…';
         });
 
         call.on('error', (err) => {
@@ -712,11 +745,8 @@
       const connectBtn = document.getElementById('connectBtn');
       if (connectBtn) connectBtn.disabled = true;
 
-      if (fromAuto) {
-        autoJoinText.textContent = 'Allow camera when asked…';
-      } else {
-        setStatus(guestStatus, 'Starting…');
-      }
+      if (fromAuto) autoJoinText.textContent = 'Allow camera when asked…';
+      else setStatus(guestStatus, 'Starting…');
 
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
@@ -765,7 +795,7 @@
         currentCall = call;
 
         if (!call) {
-          const msg = 'Room not found. Ask for a new link.';
+          const msg = 'Room not found. Friend must open/resume the room first.';
           if (fromAuto) {
             autoJoinText.textContent = msg;
             autoJoinText.style.color = 'var(--danger)';
@@ -794,15 +824,6 @@
         setTimeout(limitBitrate, 800);
         setTimeout(limitBitrate, 2500);
 
-        try {
-          const pc = call.peerConnection;
-          if (pc) {
-            pc.oniceconnectionstatechange = () => {
-              console.log('Guest ICE:', pc.iceConnectionState);
-            };
-          }
-        } catch (e) {}
-
         call.on('close', () => {
           if (!fromAuto) setStatus(guestStatus, 'Disconnected', 'err');
         });
@@ -820,7 +841,7 @@
         console.error(err);
         let msg = err.message || err.type;
         if (err.type === 'peer-unavailable') {
-          msg = 'Room not found. Ask your friend to create a room again.';
+          msg = 'Room offline. Ask your friend to open Hand Drive and tap Resume room.';
         }
         if (fromAuto) {
           autoJoinText.textContent = msg;
@@ -832,13 +853,48 @@
       });
     }
 
-    document.getElementById('hostBtn').onclick = () => startAsHost();
+    function showResumeOption() {
+      const saved = loadSavedRoom();
+      if (saved) {
+        resumeBtn.style.display = 'block';
+        resumeBtn.textContent = 'Resume room ' + saved;
+        resumeHint.style.display = 'block';
+        resumeHint.innerHTML = 'Last room on this device: <strong>' + saved + '</strong>. Same share link still works after resume.';
+        resumeBtn.onclick = () => startAsHost(saved);
+      } else {
+        resumeBtn.style.display = 'none';
+        resumeHint.style.display = 'none';
+      }
+    }
+
+    document.getElementById('hostBtn').onclick = () => startAsHost(null);
     document.getElementById('joinBtn').onclick = () => startAsGuest(null, false);
+    document.getElementById('newRoomBtn').onclick = () => {
+      clearSavedRoom();
+      if (peer) try { peer.destroy(); } catch (e) {}
+      peer = null;
+      stopFreezeWatch();
+      remoteVideo.srcObject = null;
+      hostPanel.classList.add('hidden');
+      roleCard.classList.remove('hidden');
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.delete('host');
+        history.replaceState({}, '', u.pathname + u.search);
+      } catch (e) {}
+      showResumeOption();
+    };
 
     const params = new URLSearchParams(window.location.search);
     const playCode = params.get('play') || params.get('join');
+    const hostCode = params.get('host');
+
     if (playCode) {
       startAsGuest(playCode, true);
+    } else if (hostCode) {
+      startAsHost(hostCode.toUpperCase());
+    } else {
+      showResumeOption();
     }
 
     window.addEventListener('beforeunload', () => {
