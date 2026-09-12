@@ -73,14 +73,14 @@
       position: relative; background: #000; border-radius: 14px; overflow: hidden;
       border: 1px solid var(--border); aspect-ratio: 4/3; margin-top: 12px;
     }
-    .video-wrap video, .video-wrap canvas.freeze {
+    .video-wrap video, .video-wrap canvas.freeze, .video-wrap img.freeze-img {
       width: 100%; height: 100%; object-fit: cover; display: block;
       transform: scaleX(-1); background: #000;
     }
-    .video-wrap canvas.freeze {
+    .video-wrap canvas.freeze, .video-wrap img.freeze-img {
       position: absolute; inset: 0; z-index: 2;
     }
-    .video-wrap canvas.freeze.hidden { display: none; }
+    .video-wrap canvas.freeze.hidden, .video-wrap img.freeze-img.hidden { display: none; }
     .video-label {
       position: absolute; top: 10px; left: 10px; z-index: 3;
       background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 8px;
@@ -134,12 +134,12 @@
         <button class="btn-secondary" id="joinBtn">Join with code</button>
       </div>
       <p class="hint" id="resumeHint" style="display:none;"></p>
-      <p class="hint">Create a room and share the link. Use <strong>Resume room</strong> after closing the tab. <strong>Delete room</strong> removes the saved code.</p>
+      <p class="hint">Create a room and share the link. Last friend photo is saved if they disconnect — it still shows after you reload.</p>
     </div>
 
     <div id="hostPanel" class="card hidden">
       <h2>Your room is ready</h2>
-      <p class="hint">Room is saved on this device. Close anytime → open Hand Drive → Resume room. Same share link keeps working.</p>
+      <p class="hint">Room + last snapshot are saved on this device. Reload anytime — the last picture stays until someone new joins.</p>
       <div class="code-box">
         <span class="room-code" id="roomCodeDisplay">————</span>
         <button class="btn-copy" id="copyCodeBtn">Copy code</button>
@@ -150,6 +150,7 @@
         <div class="video-wrap">
           <video id="remoteVideo" autoplay playsinline muted></video>
           <canvas id="freezeCanvas" class="freeze hidden"></canvas>
+          <img id="freezeImg" class="freeze-img hidden" alt="Last snapshot" />
           <div class="video-label" id="remoteLabel">Waiting…</div>
         </div>
       </div>
@@ -169,7 +170,7 @@
       <p class="status" id="guestStatus">Enter code to play</p>
     </div>
 
-    <p class="footer-note" id="footerNote">Runs in your browser · Nothing is recorded</p>
+    <p class="footer-note" id="footerNote">Runs in your browser · Nothing is recorded on a server</p>
   </div>
 
   <div id="autoJoinOverlay">
@@ -191,6 +192,7 @@
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
     const STORAGE_KEY = 'handdrive_room_code';
+    const SNAP_KEY = 'handdrive_last_snap'; // { code, dataUrl, ts }
 
     const roleCard = document.getElementById('roleCard');
     const hostPanel = document.getElementById('hostPanel');
@@ -198,6 +200,7 @@
     const videoSection = document.getElementById('videoSection');
     const remoteVideo = document.getElementById('remoteVideo');
     const freezeCanvas = document.getElementById('freezeCanvas');
+    const freezeImg = document.getElementById('freezeImg');
     const localVideo = document.getElementById('localVideo');
     const hostStatus = document.getElementById('hostStatus');
     const guestStatus = document.getElementById('guestStatus');
@@ -220,6 +223,7 @@
     let activeRoomCode = null;
     let reconnectAttempts = 0;
     let intentionalDestroy = false;
+    let snapInterval = null;
 
     const PEER_CONFIG = {
       debug: 0,
@@ -256,6 +260,45 @@
       activeRoomCode = null;
     }
 
+    function snapStorageKey(code) {
+      return SNAP_KEY + '_' + (code || '').toUpperCase();
+    }
+
+    /** Save a small JPEG of the current video/canvas for this room */
+    function saveSnapshotForRoom(code, dataUrl) {
+      if (!code || !dataUrl) return;
+      try {
+        localStorage.setItem(snapStorageKey(code), JSON.stringify({
+          code: code.toUpperCase(),
+          dataUrl: dataUrl,
+          ts: Date.now()
+        }));
+      } catch (e) {
+        // Quota exceeded — try smaller
+        try {
+          localStorage.removeItem(snapStorageKey(code));
+          localStorage.setItem(snapStorageKey(code), JSON.stringify({
+            code: code.toUpperCase(), dataUrl: dataUrl, ts: Date.now()
+          }));
+        } catch (e2) {}
+      }
+    }
+
+    function loadSnapshotForRoom(code) {
+      if (!code) return null;
+      try {
+        const raw = localStorage.getItem(snapStorageKey(code));
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        if (obj && obj.dataUrl) return obj;
+      } catch (e) {}
+      return null;
+    }
+
+    function clearSnapshotForRoom(code) {
+      try { localStorage.removeItem(snapStorageKey(code)); } catch (e) {}
+    }
+
     function randomCode() {
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let s = '';
@@ -285,38 +328,93 @@
       return stream.getVideoTracks().some(t => t.readyState === 'live' && t.enabled);
     }
 
-    /** Capture last frame so screen does not go black when friend leaves */
-    function freezeLastFrame() {
+    /** Draw video to offscreen-sized canvas and return jpeg dataURL */
+    function captureVideoAsJpeg(maxW) {
+      const w = remoteVideo.videoWidth;
+      const h = remoteVideo.videoHeight;
+      if (!w || !h) return null;
+      const scale = Math.min(1, (maxW || 480) / w);
+      const cw = Math.round(w * scale);
+      const ch = Math.round(h * scale);
+      const c = document.createElement('canvas');
+      c.width = cw;
+      c.height = ch;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(remoteVideo, 0, 0, cw, ch);
       try {
-        const w = remoteVideo.videoWidth;
-        const h = remoteVideo.videoHeight;
-        if (!w || !h) return false;
-        freezeCanvas.width = w;
-        freezeCanvas.height = h;
-        const ctx = freezeCanvas.getContext('2d');
-        ctx.drawImage(remoteVideo, 0, 0, w, h);
-        freezeCanvas.classList.remove('hidden');
-        return true;
+        return c.toDataURL('image/jpeg', 0.72);
       } catch (e) {
-        return false;
+        return null;
       }
     }
 
-    function clearFrozenFrame() {
+    function showSnapshotOnScreen(dataUrl, label) {
+      if (!dataUrl) return false;
+      freezeImg.src = dataUrl;
+      freezeImg.classList.remove('hidden');
       freezeCanvas.classList.add('hidden');
-      const ctx = freezeCanvas.getContext('2d');
-      ctx.clearRect(0, 0, freezeCanvas.width, freezeCanvas.height);
+      document.getElementById('remoteLabel').textContent = label || 'Last snapshot';
+      return true;
     }
 
-    function onPlayerDisconnected(reason) {
+    function hideSnapshot() {
+      freezeImg.classList.add('hidden');
+      freezeImg.removeAttribute('src');
+      freezeCanvas.classList.add('hidden');
+    }
+
+    function freezeAndPersist(code) {
+      // Prefer live video frame
+      let dataUrl = captureVideoAsJpeg(480);
+      if (!dataUrl && freezeImg.src && freezeImg.src.startsWith('data:')) {
+        dataUrl = freezeImg.src;
+      }
+      if (!dataUrl) return false;
+
+      showSnapshotOnScreen(dataUrl, 'Last frame (saved)');
+      saveSnapshotForRoom(code || activeRoomCode, dataUrl);
+      return true;
+    }
+
+    function restoreSavedSnapshot(code) {
+      const snap = loadSnapshotForRoom(code);
+      if (snap && snap.dataUrl) {
+        showSnapshotOnScreen(snap.dataUrl, 'Last saved photo');
+        setStatus(hostStatus, 'Showing last saved photo — waiting for player', 'ok');
+        return true;
+      }
+      return false;
+    }
+
+    function startPeriodicSnap(code) {
+      stopPeriodicSnap();
+      // Keep updating saved photo while live so reload always has a recent face
+      snapInterval = setInterval(() => {
+        if (!remoteVideo.srcObject || remoteVideo.videoWidth < 2) return;
+        const dataUrl = captureVideoAsJpeg(400);
+        if (dataUrl) saveSnapshotForRoom(code, dataUrl);
+      }, 4000);
+    }
+
+    function stopPeriodicSnap() {
+      if (snapInterval) {
+        clearInterval(snapInterval);
+        snapInterval = null;
+      }
+    }
+
+    function onPlayerDisconnected() {
       stopFreezeWatch();
-      const froze = freezeLastFrame();
-      document.getElementById('remoteLabel').textContent = froze ? 'Last frame (disconnected)' : 'Disconnected';
-      setStatus(hostStatus, 'Player left — last frame kept. Waiting for next join…', 'err');
-      // Keep srcObject briefly then clear live decode; canvas holds the picture
+      stopPeriodicSnap();
+      const code = activeRoomCode;
+      const ok = freezeAndPersist(code);
+      document.getElementById('remoteLabel').textContent = ok
+        ? 'Last frame (saved)'
+        : 'Disconnected';
+      setStatus(hostStatus, 'Player left — photo kept. Waiting for next join…', 'err');
       setTimeout(() => {
         try { remoteVideo.srcObject = null; } catch (e) {}
-      }, 100);
+      }, 120);
       currentCall = null;
     }
 
@@ -327,7 +425,7 @@
         return;
       }
 
-      clearFrozenFrame();
+      hideSnapshot();
       remoteVideo.srcObject = stream;
       remoteVideo.muted = true;
       remoteVideo.playsInline = true;
@@ -339,19 +437,24 @@
       });
 
       stream.getVideoTracks().forEach(track => {
-        track.onmute = () => {
-          document.getElementById('remoteLabel').textContent = 'Camera muted';
-        };
+        track.onmute = () => { document.getElementById('remoteLabel').textContent = 'Camera muted'; };
         track.onunmute = () => {
           document.getElementById('remoteLabel').textContent = 'Live';
           remoteVideo.play().catch(() => {});
         };
-        track.onended = () => onPlayerDisconnected('track-ended');
+        track.onended = () => onPlayerDisconnected();
       });
 
       document.getElementById('remoteLabel').textContent = 'Live';
       setStatus(hostStatus, 'Connected — friend is playing', 'ok');
       startFreezeWatch();
+      startPeriodicSnap(activeRoomCode);
+
+      // Save one frame soon after connect
+      setTimeout(() => {
+        const dataUrl = captureVideoAsJpeg(400);
+        if (dataUrl) saveSnapshotForRoom(activeRoomCode, dataUrl);
+      }, 1500);
     }
 
     function startFreezeWatch() {
@@ -359,19 +462,12 @@
       lastVideoTime = 0;
       freezeCount = 0;
       freezeTimer = setInterval(() => {
-        if (!remoteVideo.srcObject || !freezeCanvas.classList.contains('hidden') === false && freezeCanvas.width) {
-          // if already showing freeze canvas from disconnect, skip
-        }
         if (!remoteVideo.srcObject) return;
         const t = remoteVideo.currentTime;
         if (t === lastVideoTime && !remoteVideo.paused && remoteVideo.videoWidth > 0) {
           freezeCount++;
-          if (freezeCount >= 4) {
-            remoteVideo.play().catch(() => {});
-          }
-        } else {
-          freezeCount = 0;
-        }
+          if (freezeCount >= 4) remoteVideo.play().catch(() => {});
+        } else freezeCount = 0;
         lastVideoTime = t;
       }, 1200);
     }
@@ -431,7 +527,8 @@
     function goHome() {
       destroyPeer();
       stopFreezeWatch();
-      clearFrozenFrame();
+      stopPeriodicSnap();
+      hideSnapshot();
       remoteVideo.srcObject = null;
       hostPanel.classList.add('hidden');
       guestPanel.classList.add('hidden');
@@ -446,9 +543,11 @@
     }
 
     function deleteRoom() {
-      if (!confirm('Delete this room? The old link will stop working.')) return;
+      if (!confirm('Delete this room and saved photo? The old link will stop working.')) return;
+      const code = activeRoomCode || loadSavedRoom();
+      clearSnapshotForRoom(code);
       clearSavedRoom();
-      clearFrozenFrame();
+      hideSnapshot();
       goHome();
     }
 
@@ -456,19 +555,24 @@
       roleCard.classList.add('hidden');
       hostPanel.classList.remove('hidden');
       videoSection.classList.remove('hidden');
-      document.getElementById('remoteLabel').textContent = 'Waiting for player…';
-      // Keep frozen frame if resuming with one already shown
-      if (freezeCanvas.classList.contains('hidden')) {
-        remoteVideo.srcObject = null;
-      }
 
       destroyPeer();
+      stopPeriodicSnap();
 
       const code = (existingCode || randomCode()).toUpperCase();
       roomCodeDisplay.textContent = code;
       saveRoom(code);
       bindHostCopy(code);
       reconnectAttempts = 0;
+      activeRoomCode = code;
+
+      // Restore last photo immediately on load/resume/reload
+      remoteVideo.srcObject = null;
+      const hadSnap = restoreSavedSnapshot(code);
+      if (!hadSnap) {
+        hideSnapshot();
+        document.getElementById('remoteLabel').textContent = 'Waiting for player…';
+      }
 
       try {
         const u = new URL(window.location.href);
@@ -477,15 +581,19 @@
         history.replaceState({}, '', u.toString());
       } catch (e) {}
 
-      setStatus(hostStatus, existingCode ? 'Opening room…' : 'Creating room…');
+      setStatus(hostStatus, hadSnap
+        ? 'Room online — showing last photo'
+        : (existingCode ? 'Opening room…' : 'Creating room…'), hadSnap ? 'ok' : undefined);
 
       peer = new Peer('hd-' + code, PEER_CONFIG);
 
-      peer.on('open', (id) => {
+      peer.on('open', () => {
         reconnectAttempts = 0;
-        setStatus(hostStatus, existingCode
-          ? 'Room online — same link works'
-          : 'Share the link with your friend', 'ok');
+        if (!remoteVideo.srcObject) {
+          setStatus(hostStatus, hadSnap
+            ? 'Room online — last photo shown until someone joins'
+            : 'Share the link with your friend', 'ok');
+        }
       });
 
       peer.on('error', (err) => {
@@ -495,16 +603,11 @@
           setTimeout(() => startAsHost(code), 1500);
           return;
         }
-        if (err.type === 'network' || err.type === 'server-error') {
-          setStatus(hostStatus, 'Server issue — retrying…', 'err');
-          return;
-        }
         setStatus(hostStatus, 'Error: ' + (err.message || err.type), 'err');
       });
 
       peer.on('disconnected', () => {
         if (intentionalDestroy) return;
-        // Quiet auto-reconnect — PeerJS cloud drops often
         reconnectAttempts++;
         if (reconnectAttempts <= 8) {
           setStatus(hostStatus, 'Reconnecting…', 'err');
@@ -518,31 +621,26 @@
 
       peer.on('call', (call) => {
         setStatus(hostStatus, 'Player joining…', 'ok');
-        if (currentCall) {
-          try { currentCall.close(); } catch (e) {}
-        }
+        if (currentCall) try { currentCall.close(); } catch (e) {}
         currentCall = call;
         call.answer();
 
-        call.on('stream', (remoteStream) => {
-          attachRemoteStream(remoteStream);
-        });
+        call.on('stream', (remoteStream) => attachRemoteStream(remoteStream));
 
         try {
           const pc = call.peerConnection;
           if (pc) {
             pc.oniceconnectionstatechange = () => {
-              const st = pc.iceConnectionState;
-              if (st === 'failed') {
-                onPlayerDisconnected('ice-failed');
+              if (pc.iceConnectionState === 'failed') {
+                onPlayerDisconnected();
                 setStatus(hostStatus, 'Media failed. Friend can rejoin with same link.', 'err');
               }
             };
           }
         } catch (e) {}
 
-        call.on('close', () => onPlayerDisconnected('close'));
-        call.on('error', () => onPlayerDisconnected('error'));
+        call.on('close', () => onPlayerDisconnected());
+        call.on('error', () => onPlayerDisconnected());
       });
     }
 
@@ -638,7 +736,6 @@
         setTimeout(limitBitrate, 2500);
 
         call.on('close', () => { if (!fromAuto) setStatus(guestStatus, 'Disconnected', 'err'); });
-        call.on('error', (err) => console.error(err));
         setTimeout(() => showGameForGuest(code), 500);
       });
 
@@ -648,7 +745,7 @@
         console.error(err);
         let msg = err.message || err.type;
         if (err.type === 'peer-unavailable') {
-          msg = 'Room offline. Ask your friend to open Hand Drive and Resume room.';
+          msg = 'Room offline. Ask your friend to Resume room.';
         }
         if (fromAuto) { autoJoinText.textContent = msg; autoJoinText.style.color = 'var(--danger)'; }
         else { setStatus(guestStatus, msg, 'err'); if (connectBtn) connectBtn.disabled = false; }
@@ -661,7 +758,10 @@
         resumeBtn.style.display = 'block';
         resumeBtn.textContent = 'Resume room ' + saved;
         resumeHint.style.display = 'block';
-        resumeHint.innerHTML = 'Saved room: <strong>' + saved + '</strong>. Same share link works after resume.';
+        const snap = loadSnapshotForRoom(saved);
+        resumeHint.innerHTML = 'Saved room: <strong>' + saved + '</strong>'
+          + (snap ? ' · last photo is stored on this device' : '')
+          + '. Same share link works after resume.';
         resumeBtn.onclick = () => startAsHost(saved);
       } else {
         resumeBtn.style.display = 'none';
@@ -673,25 +773,33 @@
     document.getElementById('joinBtn').onclick = () => startAsGuest(null, false);
     document.getElementById('deleteRoomBtn').onclick = () => deleteRoom();
     document.getElementById('newRoomBtn').onclick = () => {
-      if (!confirm('Create a new room? Old link will stop working.')) return;
+      if (!confirm('Create a new room? Old link and photo will be cleared.')) return;
+      const old = activeRoomCode || loadSavedRoom();
+      clearSnapshotForRoom(old);
       clearSavedRoom();
-      clearFrozenFrame();
+      hideSnapshot();
       destroyPeer();
       stopFreezeWatch();
+      stopPeriodicSnap();
       remoteVideo.srcObject = null;
       startAsHost(null);
     };
 
-    const params = new URLSearchParams(window.location.search);
-    const playCode = params.get('play') || params.get('join');
-    const hostCode = params.get('host');
-
-    if (playCode) startAsGuest(playCode, true);
-    else if (hostCode) startAsHost(hostCode.toUpperCase());
-    else showResumeOption();
+    // Save one last snap if possible before tab close
+    window.addEventListener('pagehide', () => {
+      if (activeRoomCode && remoteVideo.srcObject && remoteVideo.videoWidth > 0) {
+        const dataUrl = captureVideoAsJpeg(400);
+        if (dataUrl) saveSnapshotForRoom(activeRoomCode, dataUrl);
+      }
+    });
 
     window.addEventListener('beforeunload', () => {
+      if (activeRoomCode && remoteVideo.srcObject && remoteVideo.videoWidth > 0) {
+        const dataUrl = captureVideoAsJpeg(400);
+        if (dataUrl) saveSnapshotForRoom(activeRoomCode, dataUrl);
+      }
       stopFreezeWatch();
+      stopPeriodicSnap();
       intentionalDestroy = true;
       try { if (currentCall) currentCall.close(); } catch (e) {}
       try { if (localStream) localStream.getTracks().forEach(t => t.stop()); } catch (e) {}
@@ -701,6 +809,14 @@
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && remoteVideo.srcObject) remoteVideo.play().catch(() => {});
     });
+
+    const params = new URLSearchParams(window.location.search);
+    const playCode = params.get('play') || params.get('join');
+    const hostCode = params.get('host');
+
+    if (playCode) startAsGuest(playCode, true);
+    else if (hostCode) startAsHost(hostCode.toUpperCase());
+    else showResumeOption();
   </script>
 </body>
 </html>
