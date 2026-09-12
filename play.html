@@ -73,14 +73,12 @@
       position: relative; background: #000; border-radius: 14px; overflow: hidden;
       border: 1px solid var(--border); aspect-ratio: 4/3; margin-top: 12px;
     }
-    .video-wrap video, .video-wrap canvas.freeze, .video-wrap img.freeze-img {
+    .video-wrap video, .video-wrap img.freeze-img {
       width: 100%; height: 100%; object-fit: cover; display: block;
       transform: scaleX(-1); background: #000;
     }
-    .video-wrap canvas.freeze, .video-wrap img.freeze-img {
-      position: absolute; inset: 0; z-index: 2;
-    }
-    .video-wrap canvas.freeze.hidden, .video-wrap img.freeze-img.hidden { display: none; }
+    .video-wrap img.freeze-img { position: absolute; inset: 0; z-index: 2; }
+    .video-wrap img.freeze-img.hidden { display: none; }
     .video-label {
       position: absolute; top: 10px; left: 10px; z-index: 3;
       background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 8px;
@@ -88,6 +86,29 @@
     }
     .hint { font-size: 0.82rem; color: var(--muted); margin-top: 12px; line-height: 1.5; }
     .footer-note { text-align: center; margin-top: 20px; font-size: 0.75rem; color: #5a6a80; }
+    #recentRooms { display: none; margin-top: 4px; }
+    #recentRooms h3 {
+      font-size: 0.85rem; color: var(--muted); font-weight: 600;
+      margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .room-chip {
+      display: flex; align-items: center; gap: 10px;
+      background: #0a0d12; border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
+    }
+    .room-chip img {
+      width: 44px; height: 44px; border-radius: 8px; object-fit: cover;
+      background: #000; flex-shrink: 0; transform: scaleX(-1);
+    }
+    .room-chip .meta { flex: 1; min-width: 0; }
+    .room-chip .code {
+      font-family: ui-monospace, monospace; font-weight: 700;
+      color: #9dffc0; letter-spacing: 0.08em;
+    }
+    .room-chip .when { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+    .room-chip button {
+      width: auto; padding: 8px 12px; font-size: 0.85rem; flex-shrink: 0;
+    }
     #gameShell {
       display: none; position: fixed; inset: 0; z-index: 50;
       background: #0a0d12; flex-direction: column;
@@ -129,17 +150,21 @@
     <div id="roleCard" class="card">
       <h2>Start</h2>
       <div class="role-btns">
-        <button class="btn-primary" id="resumeBtn" style="display:none;">Resume room</button>
         <button class="btn-primary" id="hostBtn">Create room & invite</button>
         <button class="btn-secondary" id="joinBtn">Join with code</button>
       </div>
-      <p class="hint" id="resumeHint" style="display:none;"></p>
-      <p class="hint">Create a room and share the link. Last friend photo is saved if they disconnect — it still shows after you reload.</p>
+
+      <div id="recentRooms">
+        <h3>Recent rooms (last 3)</h3>
+        <div id="recentList"></div>
+      </div>
+
+      <p class="hint">Up to 3 recent rooms are saved on this device, with the last photo from each.</p>
     </div>
 
     <div id="hostPanel" class="card hidden">
       <h2>Your room is ready</h2>
-      <p class="hint">Room + last snapshot are saved on this device. Reload anytime — the last picture stays until someone new joins.</p>
+      <p class="hint">This room is in your recent list. Reload anytime — last photo stays until someone new joins.</p>
       <div class="code-box">
         <span class="room-code" id="roomCodeDisplay">————</span>
         <button class="btn-copy" id="copyCodeBtn">Copy code</button>
@@ -149,13 +174,12 @@
       <div id="videoSection" class="hidden">
         <div class="video-wrap">
           <video id="remoteVideo" autoplay playsinline muted></video>
-          <canvas id="freezeCanvas" class="freeze hidden"></canvas>
           <img id="freezeImg" class="freeze-img hidden" alt="Last snapshot" />
           <div class="video-label" id="remoteLabel">Waiting…</div>
         </div>
       </div>
       <div class="btn-row">
-        <button class="btn-danger-outline" id="deleteRoomBtn">Delete room</button>
+        <button class="btn-danger-outline" id="deleteRoomBtn">Delete this room</button>
         <button class="btn-secondary" id="newRoomBtn" style="border:1px solid var(--border);">New room</button>
       </div>
     </div>
@@ -191,15 +215,14 @@
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
-    const STORAGE_KEY = 'handdrive_room_code';
-    const SNAP_KEY = 'handdrive_last_snap'; // { code, dataUrl, ts }
+    const ROOMS_KEY = 'handdrive_rooms_v2'; // array of { code, dataUrl, ts }
+    const MAX_ROOMS = 3;
 
     const roleCard = document.getElementById('roleCard');
     const hostPanel = document.getElementById('hostPanel');
     const guestPanel = document.getElementById('guestPanel');
     const videoSection = document.getElementById('videoSection');
     const remoteVideo = document.getElementById('remoteVideo');
-    const freezeCanvas = document.getElementById('freezeCanvas');
     const freezeImg = document.getElementById('freezeImg');
     const localVideo = document.getElementById('localVideo');
     const hostStatus = document.getElementById('hostStatus');
@@ -211,8 +234,8 @@
     const footerNote = document.getElementById('footerNote');
     const autoJoinOverlay = document.getElementById('autoJoinOverlay');
     const autoJoinText = document.getElementById('autoJoinText');
-    const resumeBtn = document.getElementById('resumeBtn');
-    const resumeHint = document.getElementById('resumeHint');
+    const recentRoomsEl = document.getElementById('recentRooms');
+    const recentList = document.getElementById('recentList');
 
     let peer = null;
     let localStream = null;
@@ -247,56 +270,109 @@
       }
     };
 
-    function saveRoom(code) {
-      try { localStorage.setItem(STORAGE_KEY, code); } catch (e) {}
-      activeRoomCode = code;
-    }
-    function loadSavedRoom() {
-      try { return (localStorage.getItem(STORAGE_KEY) || '').toUpperCase() || null; }
-      catch (e) { return null; }
-    }
-    function clearSavedRoom() {
-      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-      activeRoomCode = null;
-    }
-
-    function snapStorageKey(code) {
-      return SNAP_KEY + '_' + (code || '').toUpperCase();
-    }
-
-    /** Save a small JPEG of the current video/canvas for this room */
-    function saveSnapshotForRoom(code, dataUrl) {
-      if (!code || !dataUrl) return;
+    function loadRooms() {
       try {
-        localStorage.setItem(snapStorageKey(code), JSON.stringify({
-          code: code.toUpperCase(),
-          dataUrl: dataUrl,
-          ts: Date.now()
-        }));
+        const raw = localStorage.getItem(ROOMS_KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
       } catch (e) {
-        // Quota exceeded — try smaller
+        return [];
+      }
+    }
+
+    function saveRooms(list) {
+      try {
+        localStorage.setItem(ROOMS_KEY, JSON.stringify(list.slice(0, MAX_ROOMS)));
+      } catch (e) {
+        // Quota: drop oldest photos first
         try {
-          localStorage.removeItem(snapStorageKey(code));
-          localStorage.setItem(snapStorageKey(code), JSON.stringify({
-            code: code.toUpperCase(), dataUrl: dataUrl, ts: Date.now()
-          }));
+          const slim = list.slice(0, MAX_ROOMS).map((r, i) =>
+            i === 0 ? r : { code: r.code, ts: r.ts, dataUrl: null }
+          );
+          localStorage.setItem(ROOMS_KEY, JSON.stringify(slim));
         } catch (e2) {}
       }
     }
 
-    function loadSnapshotForRoom(code) {
-      if (!code) return null;
-      try {
-        const raw = localStorage.getItem(snapStorageKey(code));
-        if (!raw) return null;
-        const obj = JSON.parse(raw);
-        if (obj && obj.dataUrl) return obj;
-      } catch (e) {}
-      return null;
+    /** Put room at front of list (most recent), keep max 3 */
+    function touchRoom(code, dataUrl) {
+      code = (code || '').toUpperCase();
+      if (!code) return;
+      let list = loadRooms().filter(r => r.code !== code);
+      const prev = loadRooms().find(r => r.code === code);
+      list.unshift({
+        code,
+        dataUrl: dataUrl || (prev && prev.dataUrl) || null,
+        ts: Date.now()
+      });
+      saveRooms(list);
+      activeRoomCode = code;
     }
 
-    function clearSnapshotForRoom(code) {
-      try { localStorage.removeItem(snapStorageKey(code)); } catch (e) {}
+    function updateRoomPhoto(code, dataUrl) {
+      code = (code || '').toUpperCase();
+      if (!code || !dataUrl) return;
+      let list = loadRooms();
+      const idx = list.findIndex(r => r.code === code);
+      if (idx >= 0) {
+        list[idx].dataUrl = dataUrl;
+        list[idx].ts = Date.now();
+        // move to front
+        const item = list.splice(idx, 1)[0];
+        list.unshift(item);
+      } else {
+        list.unshift({ code, dataUrl, ts: Date.now() });
+      }
+      saveRooms(list);
+    }
+
+    function removeRoom(code) {
+      code = (code || '').toUpperCase();
+      saveRooms(loadRooms().filter(r => r.code !== code));
+      if (activeRoomCode === code) activeRoomCode = null;
+    }
+
+    function getRoom(code) {
+      code = (code || '').toUpperCase();
+      return loadRooms().find(r => r.code === code) || null;
+    }
+
+    function formatWhen(ts) {
+      if (!ts) return '';
+      const d = Date.now() - ts;
+      if (d < 60000) return 'just now';
+      if (d < 3600000) return Math.floor(d / 60000) + ' min ago';
+      if (d < 86400000) return Math.floor(d / 3600000) + ' h ago';
+      return Math.floor(d / 86400000) + ' d ago';
+    }
+
+    function renderRecentRooms() {
+      const list = loadRooms();
+      if (!list.length) {
+        recentRoomsEl.style.display = 'none';
+        recentList.innerHTML = '';
+        return;
+      }
+      recentRoomsEl.style.display = 'block';
+      recentList.innerHTML = '';
+      list.forEach(r => {
+        const row = document.createElement('div');
+        row.className = 'room-chip';
+        const imgHtml = r.dataUrl
+          ? '<img src="' + r.dataUrl + '" alt="" />'
+          : '<img alt="" style="background:#1a2332" />';
+        row.innerHTML =
+          imgHtml +
+          '<div class="meta"><div class="code">' + r.code + '</div>' +
+          '<div class="when">' + formatWhen(r.ts) + (r.dataUrl ? ' · photo saved' : '') + '</div></div>';
+        const btn = document.createElement('button');
+        btn.className = 'btn-primary';
+        btn.textContent = 'Open';
+        btn.onclick = () => startAsHost(r.code);
+        row.appendChild(btn);
+        recentList.appendChild(row);
+      });
     }
 
     function randomCode() {
@@ -328,31 +404,22 @@
       return stream.getVideoTracks().some(t => t.readyState === 'live' && t.enabled);
     }
 
-    /** Draw video to offscreen-sized canvas and return jpeg dataURL */
     function captureVideoAsJpeg(maxW) {
       const w = remoteVideo.videoWidth;
       const h = remoteVideo.videoHeight;
       if (!w || !h) return null;
-      const scale = Math.min(1, (maxW || 480) / w);
-      const cw = Math.round(w * scale);
-      const ch = Math.round(h * scale);
+      const scale = Math.min(1, (maxW || 400) / w);
       const c = document.createElement('canvas');
-      c.width = cw;
-      c.height = ch;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(remoteVideo, 0, 0, cw, ch);
-      try {
-        return c.toDataURL('image/jpeg', 0.72);
-      } catch (e) {
-        return null;
-      }
+      c.width = Math.round(w * scale);
+      c.height = Math.round(h * scale);
+      c.getContext('2d').drawImage(remoteVideo, 0, 0, c.width, c.height);
+      try { return c.toDataURL('image/jpeg', 0.7); } catch (e) { return null; }
     }
 
     function showSnapshotOnScreen(dataUrl, label) {
       if (!dataUrl) return false;
       freezeImg.src = dataUrl;
       freezeImg.classList.remove('hidden');
-      freezeCanvas.classList.add('hidden');
       document.getElementById('remoteLabel').textContent = label || 'Last snapshot';
       return true;
     }
@@ -360,26 +427,21 @@
     function hideSnapshot() {
       freezeImg.classList.add('hidden');
       freezeImg.removeAttribute('src');
-      freezeCanvas.classList.add('hidden');
     }
 
     function freezeAndPersist(code) {
-      // Prefer live video frame
-      let dataUrl = captureVideoAsJpeg(480);
-      if (!dataUrl && freezeImg.src && freezeImg.src.startsWith('data:')) {
-        dataUrl = freezeImg.src;
-      }
+      let dataUrl = captureVideoAsJpeg(400);
+      if (!dataUrl && freezeImg.src && freezeImg.src.startsWith('data:')) dataUrl = freezeImg.src;
       if (!dataUrl) return false;
-
       showSnapshotOnScreen(dataUrl, 'Last frame (saved)');
-      saveSnapshotForRoom(code || activeRoomCode, dataUrl);
+      updateRoomPhoto(code || activeRoomCode, dataUrl);
       return true;
     }
 
     function restoreSavedSnapshot(code) {
-      const snap = loadSnapshotForRoom(code);
-      if (snap && snap.dataUrl) {
-        showSnapshotOnScreen(snap.dataUrl, 'Last saved photo');
+      const room = getRoom(code);
+      if (room && room.dataUrl) {
+        showSnapshotOnScreen(room.dataUrl, 'Last saved photo');
         setStatus(hostStatus, 'Showing last saved photo — waiting for player', 'ok');
         return true;
       }
@@ -388,33 +450,24 @@
 
     function startPeriodicSnap(code) {
       stopPeriodicSnap();
-      // Keep updating saved photo while live so reload always has a recent face
       snapInterval = setInterval(() => {
         if (!remoteVideo.srcObject || remoteVideo.videoWidth < 2) return;
-        const dataUrl = captureVideoAsJpeg(400);
-        if (dataUrl) saveSnapshotForRoom(code, dataUrl);
+        const dataUrl = captureVideoAsJpeg(360);
+        if (dataUrl) updateRoomPhoto(code, dataUrl);
       }, 4000);
     }
 
     function stopPeriodicSnap() {
-      if (snapInterval) {
-        clearInterval(snapInterval);
-        snapInterval = null;
-      }
+      if (snapInterval) { clearInterval(snapInterval); snapInterval = null; }
     }
 
     function onPlayerDisconnected() {
       stopFreezeWatch();
       stopPeriodicSnap();
-      const code = activeRoomCode;
-      const ok = freezeAndPersist(code);
-      document.getElementById('remoteLabel').textContent = ok
-        ? 'Last frame (saved)'
-        : 'Disconnected';
+      const ok = freezeAndPersist(activeRoomCode);
+      document.getElementById('remoteLabel').textContent = ok ? 'Last frame (saved)' : 'Disconnected';
       setStatus(hostStatus, 'Player left — photo kept. Waiting for next join…', 'err');
-      setTimeout(() => {
-        try { remoteVideo.srcObject = null; } catch (e) {}
-      }, 120);
+      setTimeout(() => { try { remoteVideo.srcObject = null; } catch (e) {} }, 120);
       currentCall = null;
     }
 
@@ -424,36 +477,25 @@
         setStatus(hostStatus, 'Connected but no camera from friend', 'err');
         return;
       }
-
       hideSnapshot();
       remoteVideo.srcObject = stream;
       remoteVideo.muted = true;
       remoteVideo.playsInline = true;
       remoteVideo.setAttribute('playsinline', '');
-      remoteVideo.setAttribute('webkit-playsinline', '');
       remoteVideo.play().catch(() => {
         document.getElementById('remoteLabel').textContent = 'Tap video to play';
         remoteVideo.onclick = () => remoteVideo.play().catch(() => {});
       });
-
       stream.getVideoTracks().forEach(track => {
-        track.onmute = () => { document.getElementById('remoteLabel').textContent = 'Camera muted'; };
-        track.onunmute = () => {
-          document.getElementById('remoteLabel').textContent = 'Live';
-          remoteVideo.play().catch(() => {});
-        };
         track.onended = () => onPlayerDisconnected();
       });
-
       document.getElementById('remoteLabel').textContent = 'Live';
       setStatus(hostStatus, 'Connected — friend is playing', 'ok');
       startFreezeWatch();
       startPeriodicSnap(activeRoomCode);
-
-      // Save one frame soon after connect
       setTimeout(() => {
-        const dataUrl = captureVideoAsJpeg(400);
-        if (dataUrl) saveSnapshotForRoom(activeRoomCode, dataUrl);
+        const dataUrl = captureVideoAsJpeg(360);
+        if (dataUrl) updateRoomPhoto(activeRoomCode, dataUrl);
       }, 1500);
     }
 
@@ -539,14 +581,12 @@
         u.searchParams.delete('play');
         history.replaceState({}, '', u.pathname + (u.search || ''));
       } catch (e) {}
-      showResumeOption();
+      renderRecentRooms();
     }
 
     function deleteRoom() {
-      if (!confirm('Delete this room and saved photo? The old link will stop working.')) return;
-      const code = activeRoomCode || loadSavedRoom();
-      clearSnapshotForRoom(code);
-      clearSavedRoom();
+      if (!confirm('Delete this room and its saved photo?')) return;
+      removeRoom(activeRoomCode);
       hideSnapshot();
       goHome();
     }
@@ -555,18 +595,16 @@
       roleCard.classList.add('hidden');
       hostPanel.classList.remove('hidden');
       videoSection.classList.remove('hidden');
-
       destroyPeer();
       stopPeriodicSnap();
 
       const code = (existingCode || randomCode()).toUpperCase();
       roomCodeDisplay.textContent = code;
-      saveRoom(code);
+      touchRoom(code, null);
       bindHostCopy(code);
       reconnectAttempts = 0;
       activeRoomCode = code;
 
-      // Restore last photo immediately on load/resume/reload
       remoteVideo.srcObject = null;
       const hadSnap = restoreSavedSnapshot(code);
       if (!hadSnap) {
@@ -615,7 +653,7 @@
             setTimeout(() => startAsHost(code), 2000);
           }
         } else {
-          setStatus(hostStatus, 'Connection lost. Tap Resume room.', 'err');
+          setStatus(hostStatus, 'Connection lost. Open room again from Recent.', 'err');
         }
       });
 
@@ -624,9 +662,7 @@
         if (currentCall) try { currentCall.close(); } catch (e) {}
         currentCall = call;
         call.answer();
-
         call.on('stream', (remoteStream) => attachRemoteStream(remoteStream));
-
         try {
           const pc = call.peerConnection;
           if (pc) {
@@ -638,7 +674,6 @@
             };
           }
         } catch (e) {}
-
         call.on('close', () => onPlayerDisconnected());
         call.on('error', () => onPlayerDisconnected());
       });
@@ -668,7 +703,6 @@
         } else setStatus(guestStatus, 'Enter a valid code', 'err');
         return;
       }
-
       const connectBtn = document.getElementById('connectBtn');
       if (connectBtn) connectBtn.disabled = true;
       if (fromAuto) autoJoinText.textContent = 'Allow camera when asked…';
@@ -686,15 +720,6 @@
         });
         localVideo.srcObject = localStream;
         await localVideo.play().catch(() => {});
-        localStream.getVideoTracks().forEach(track => {
-          try {
-            track.contentHint = 'motion';
-            track.applyConstraints({
-              frameRate: { ideal: 15, max: 20 },
-              width: { ideal: 480 }, height: { ideal: 360 }
-            }).catch(() => {});
-          } catch (e) {}
-        });
       } catch (e) {
         const msg = 'Camera needed to play. Allow camera and refresh.';
         if (fromAuto) { autoJoinText.textContent = msg; autoJoinText.style.color = 'var(--danger)'; }
@@ -706,22 +731,19 @@
       else setStatus(guestStatus, 'Joining room…');
 
       peer = new Peer(PEER_CONFIG);
-
       peer.on('open', () => {
         const call = peer.call('hd-' + code, localStream, { metadata: { role: 'player' } });
         currentCall = call;
         if (!call) {
-          const msg = 'Room not found. Friend must open/resume the room first.';
+          const msg = 'Room not found. Friend must open the room first.';
           if (fromAuto) { autoJoinText.textContent = msg; autoJoinText.style.color = 'var(--danger)'; }
           else { setStatus(guestStatus, msg, 'err'); if (connectBtn) connectBtn.disabled = false; }
           return;
         }
-
-        const limitBitrate = () => {
+        setTimeout(() => {
           try {
             const pc = call.peerConnection;
-            if (!pc) return;
-            pc.getSenders().forEach(sender => {
+            if (pc) pc.getSenders().forEach(sender => {
               if (sender.track && sender.track.kind === 'video') {
                 const params = sender.getParameters();
                 if (!params.encodings || !params.encodings.length) params.encodings = [{}];
@@ -731,52 +753,29 @@
               }
             });
           } catch (e) {}
-        };
-        setTimeout(limitBitrate, 800);
-        setTimeout(limitBitrate, 2500);
-
+        }, 1000);
         call.on('close', () => { if (!fromAuto) setStatus(guestStatus, 'Disconnected', 'err'); });
         setTimeout(() => showGameForGuest(code), 500);
       });
-
       peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} });
-
       peer.on('error', (err) => {
-        console.error(err);
         let msg = err.message || err.type;
-        if (err.type === 'peer-unavailable') {
-          msg = 'Room offline. Ask your friend to Resume room.';
-        }
+        if (err.type === 'peer-unavailable') msg = 'Room offline. Ask your friend to open the room.';
         if (fromAuto) { autoJoinText.textContent = msg; autoJoinText.style.color = 'var(--danger)'; }
         else { setStatus(guestStatus, msg, 'err'); if (connectBtn) connectBtn.disabled = false; }
       });
-    }
-
-    function showResumeOption() {
-      const saved = loadSavedRoom();
-      if (saved) {
-        resumeBtn.style.display = 'block';
-        resumeBtn.textContent = 'Resume room ' + saved;
-        resumeHint.style.display = 'block';
-        const snap = loadSnapshotForRoom(saved);
-        resumeHint.innerHTML = 'Saved room: <strong>' + saved + '</strong>'
-          + (snap ? ' · last photo is stored on this device' : '')
-          + '. Same share link works after resume.';
-        resumeBtn.onclick = () => startAsHost(saved);
-      } else {
-        resumeBtn.style.display = 'none';
-        resumeHint.style.display = 'none';
-      }
     }
 
     document.getElementById('hostBtn').onclick = () => startAsHost(null);
     document.getElementById('joinBtn').onclick = () => startAsGuest(null, false);
     document.getElementById('deleteRoomBtn').onclick = () => deleteRoom();
     document.getElementById('newRoomBtn').onclick = () => {
-      if (!confirm('Create a new room? Old link and photo will be cleared.')) return;
-      const old = activeRoomCode || loadSavedRoom();
-      clearSnapshotForRoom(old);
-      clearSavedRoom();
+      if (!confirm('Create a new room? Current room stays in Recent (max 3).')) return;
+      // keep current in recent list; just open a brand new code
+      if (activeRoomCode && remoteVideo.srcObject) {
+        const dataUrl = captureVideoAsJpeg(360);
+        if (dataUrl) updateRoomPhoto(activeRoomCode, dataUrl);
+      }
       hideSnapshot();
       destroyPeer();
       stopFreezeWatch();
@@ -785,18 +784,17 @@
       startAsHost(null);
     };
 
-    // Save one last snap if possible before tab close
     window.addEventListener('pagehide', () => {
       if (activeRoomCode && remoteVideo.srcObject && remoteVideo.videoWidth > 0) {
-        const dataUrl = captureVideoAsJpeg(400);
-        if (dataUrl) saveSnapshotForRoom(activeRoomCode, dataUrl);
+        const dataUrl = captureVideoAsJpeg(360);
+        if (dataUrl) updateRoomPhoto(activeRoomCode, dataUrl);
       }
     });
 
     window.addEventListener('beforeunload', () => {
       if (activeRoomCode && remoteVideo.srcObject && remoteVideo.videoWidth > 0) {
-        const dataUrl = captureVideoAsJpeg(400);
-        if (dataUrl) saveSnapshotForRoom(activeRoomCode, dataUrl);
+        const dataUrl = captureVideoAsJpeg(360);
+        if (dataUrl) updateRoomPhoto(activeRoomCode, dataUrl);
       }
       stopFreezeWatch();
       stopPeriodicSnap();
@@ -816,7 +814,7 @@
 
     if (playCode) startAsGuest(playCode, true);
     else if (hostCode) startAsHost(hostCode.toUpperCase());
-    else showResumeOption();
+    else renderRecentRooms();
   </script>
 </body>
 </html>
