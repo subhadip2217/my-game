@@ -14,7 +14,6 @@
       --bg: #0a0d12;
       --card: #121826;
       --accent: #4ee08a;
-      --accent2: #3b82f6;
       --text: #eaf2ff;
       --muted: #8f9db3;
       --border: #1e2a3a;
@@ -388,7 +387,12 @@
     let lastVideoTime = 0;
     let freezeCount = 0;
 
-    // Better connectivity across networks (reduces freezes / black screens)
+    /*
+      STUN finds a direct path when possible.
+      TURN relays video when phones are on different mobile networks / strict NAT
+      (this is why same-device worked but friend on phone showed black "Live").
+      OpenRelay free public TURN — fine for personal use; for heavy production use your own.
+    */
     const PEER_CONFIG = {
       debug: 1,
       config: {
@@ -396,10 +400,28 @@
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
           { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' }
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:80?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          }
         ],
+        iceCandidatePoolSize: 4,
         sdpSemantics: 'unified-plan'
       }
     };
@@ -430,24 +452,55 @@
       }
     }
 
+    function hasActiveVideo(stream) {
+      if (!stream) return false;
+      const tracks = stream.getVideoTracks();
+      return tracks.some(t => t.readyState === 'live' && t.enabled);
+    }
+
     function attachRemoteStream(stream) {
+      if (!hasActiveVideo(stream)) {
+        document.getElementById('remoteLabel').textContent = 'No video track';
+        setStatus(hostStatus, 'Connected but no camera track from friend', 'err');
+        return;
+      }
+
       remoteVideo.srcObject = stream;
       remoteVideo.muted = true;
       remoteVideo.playsInline = true;
       remoteVideo.setAttribute('playsinline', '');
-      remoteVideo.play().catch(() => {});
+      remoteVideo.setAttribute('webkit-playsinline', '');
 
-      // Prefer lower bitrate on sender side if possible
+      const playPromise = remoteVideo.play();
+      if (playPromise && playPromise.catch) {
+        playPromise.catch(() => {
+          // Autoplay blocked — still try once user interacts
+          document.getElementById('remoteLabel').textContent = 'Tap video to play';
+          remoteVideo.onclick = () => remoteVideo.play().catch(() => {});
+        });
+      }
+
+      stream.getVideoTracks().forEach(track => {
+        track.onmute = () => {
+          document.getElementById('remoteLabel').textContent = 'Camera muted';
+        };
+        track.onunmute = () => {
+          document.getElementById('remoteLabel').textContent = 'Live';
+          remoteVideo.play().catch(() => {});
+        };
+        track.onended = () => {
+          document.getElementById('remoteLabel').textContent = 'Camera ended';
+          setStatus(hostStatus, 'Friend camera stopped', 'err');
+        };
+      });
+
+      // Limit bitrate on receive side negotiation if we can influence senders (guest sets mainly)
       try {
         const pc = currentCall && currentCall.peerConnection;
         if (pc) {
-          pc.getSenders().forEach(sender => {
-            if (sender.track && sender.track.kind === 'video' && sender.getParameters) {
-              const params = sender.getParameters();
-              if (!params.encodings) params.encodings = [{}];
-              params.encodings[0].maxBitrate = 400000; // ~400 kbps — smoother on weak nets
-              params.encodings[0].maxFramerate = 15;
-              sender.setParameters(params).catch(() => {});
+          pc.getReceivers().forEach(r => {
+            if (r.track && r.track.kind === 'video') {
+              // nothing critical
             }
           });
         }
@@ -463,23 +516,23 @@
       freezeTimer = setInterval(() => {
         if (!remoteVideo.srcObject) return;
         const t = remoteVideo.currentTime;
-        if (t === lastVideoTime && !remoteVideo.paused) {
+        const lookingBlack = remoteVideo.videoWidth === 0;
+
+        if ((t === lastVideoTime && !remoteVideo.paused) || lookingBlack) {
           freezeCount++;
-          // Try to unstick: play() again, and nudge label
-          if (freezeCount >= 3) {
+          if (freezeCount === 3) {
             remoteVideo.play().catch(() => {});
             document.getElementById('remoteLabel').textContent = 'Reconnecting…';
           }
-          if (freezeCount >= 8) {
-            // Re-attach stream object (sometimes fixes stalled decoder)
+          if (freezeCount >= 6) {
             const s = remoteVideo.srcObject;
             remoteVideo.srcObject = null;
             setTimeout(() => {
               remoteVideo.srcObject = s;
               remoteVideo.play().catch(() => {});
-              document.getElementById('remoteLabel').textContent = 'Live';
               freezeCount = 0;
-            }, 200);
+              document.getElementById('remoteLabel').textContent = 'Live';
+            }, 250);
           }
         } else {
           freezeCount = 0;
@@ -532,6 +585,20 @@
       gameFrame.src = gameUrl();
     }
 
+    function bindHostCopy(code) {
+      document.getElementById('copyCodeBtn').onclick = () => {
+        navigator.clipboard.writeText(code).then(() => {
+          setStatus(hostStatus, 'Code copied!', 'ok');
+        }).catch(() => alert(code));
+      };
+      document.getElementById('copyLinkBtn').onclick = () => {
+        const link = getShareLink(code);
+        navigator.clipboard.writeText(link).then(() => {
+          setStatus(hostStatus, 'Link copied!', 'ok');
+        }).catch(() => prompt('Copy link:', link));
+      };
+    }
+
     async function startAsHost() {
       roleCard.classList.add('hidden');
       hostPanel.classList.remove('hidden');
@@ -540,6 +607,7 @@
 
       const code = randomCode();
       roomCodeDisplay.textContent = code;
+      bindHostCopy(code);
 
       peer = new Peer('hd-' + code, PEER_CONFIG);
 
@@ -563,15 +631,38 @@
       });
 
       peer.on('call', (call) => {
-        setStatus(hostStatus, 'Player joining…', 'ok');
+        setStatus(hostStatus, 'Player joining… (may take a few seconds on mobile)', 'ok');
         currentCall = call;
-        call.answer(); // watcher does not send media
+
+        // Answer with empty stream (watcher only receives)
+        call.answer();
 
         call.on('stream', (remoteStream) => {
           attachRemoteStream(remoteStream);
           document.getElementById('remoteLabel').textContent = 'Live';
           setStatus(hostStatus, 'Connected — friend is playing', 'ok');
         });
+
+        // ICE connection state hints
+        try {
+          const pc = call.peerConnection;
+          if (pc) {
+            pc.oniceconnectionstatechange = () => {
+              const st = pc.iceConnectionState;
+              console.log('ICE:', st);
+              if (st === 'connected' || st === 'completed') {
+                setStatus(hostStatus, 'Connected — friend is playing', 'ok');
+              } else if (st === 'checking') {
+                setStatus(hostStatus, 'Connecting media…', 'ok');
+              } else if (st === 'failed') {
+                setStatus(hostStatus, 'Media failed. Both try same Wi‑Fi or refresh link.', 'err');
+                document.getElementById('remoteLabel').textContent = 'Failed';
+              } else if (st === 'disconnected') {
+                setStatus(hostStatus, 'Media disconnected — waiting…', 'err');
+              }
+            };
+          }
+        } catch (e) {}
 
         call.on('close', () => {
           stopFreezeWatch();
@@ -585,19 +676,6 @@
           setStatus(hostStatus, 'Call error — ask them to refresh the link', 'err');
         });
       });
-
-      document.getElementById('copyCodeBtn').onclick = () => {
-        navigator.clipboard.writeText(code).then(() => {
-          setStatus(hostStatus, 'Code copied!', 'ok');
-        }).catch(() => alert(code));
-      };
-
-      document.getElementById('copyLinkBtn').onclick = () => {
-        const link = getShareLink(code);
-        navigator.clipboard.writeText(link).then(() => {
-          setStatus(hostStatus, 'Link copied!', 'ok');
-        }).catch(() => prompt('Copy link:', link));
-      };
     }
 
     async function startAsGuest(prefillCode, autoStart) {
@@ -641,31 +719,26 @@
       }
 
       try {
-        // Lower resolution + framerate = less freeze when game also uses camera
         localStream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'user',
             width: { ideal: 480, max: 640 },
             height: { ideal: 360, max: 480 },
-            frameRate: { ideal: 15, max: 24 }
+            frameRate: { ideal: 15, max: 20 }
           },
           audio: false
         });
         localVideo.srcObject = localStream;
-        localVideo.play().catch(() => {});
+        await localVideo.play().catch(() => {});
 
-        // Soften encoder load on the track
         localStream.getVideoTracks().forEach(track => {
           try {
             track.contentHint = 'motion';
-            const caps = track.getCapabilities && track.getCapabilities();
-            if (caps && caps.frameRate) {
-              track.applyConstraints({
-                frameRate: { ideal: 15, max: 20 },
-                width: { ideal: 480 },
-                height: { ideal: 360 }
-              }).catch(() => {});
-            }
+            track.applyConstraints({
+              frameRate: { ideal: 15, max: 20 },
+              width: { ideal: 480 },
+              height: { ideal: 360 }
+            }).catch(() => {});
           } catch (e) {}
         });
       } catch (e) {
@@ -681,16 +754,14 @@
         return;
       }
 
-      if (fromAuto) autoJoinText.textContent = 'Loading game…';
+      if (fromAuto) autoJoinText.textContent = 'Connecting…';
       else setStatus(guestStatus, 'Joining room…');
 
       peer = new Peer(PEER_CONFIG);
 
       peer.on('open', () => {
         const hostId = 'hd-' + code;
-        const call = peer.call(hostId, localStream, {
-          metadata: { role: 'player' }
-        });
+        const call = peer.call(hostId, localStream, { metadata: { role: 'player' } });
         currentCall = call;
 
         if (!call) {
@@ -705,19 +776,14 @@
           return;
         }
 
-        // Limit bitrate from guest side after connection settles
-        call.on('stream', () => {});
-
-        const tryLimitBitrate = () => {
+        const limitBitrate = () => {
           try {
             const pc = call.peerConnection;
             if (!pc) return;
             pc.getSenders().forEach(sender => {
               if (sender.track && sender.track.kind === 'video') {
                 const params = sender.getParameters();
-                if (!params.encodings || !params.encodings.length) {
-                  params.encodings = [{}];
-                }
+                if (!params.encodings || !params.encodings.length) params.encodings = [{}];
                 params.encodings[0].maxBitrate = 350000;
                 params.encodings[0].maxFramerate = 15;
                 sender.setParameters(params).catch(() => {});
@@ -725,18 +791,25 @@
             });
           } catch (e) {}
         };
-        setTimeout(tryLimitBitrate, 1000);
-        setTimeout(tryLimitBitrate, 3000);
+        setTimeout(limitBitrate, 800);
+        setTimeout(limitBitrate, 2500);
+
+        try {
+          const pc = call.peerConnection;
+          if (pc) {
+            pc.oniceconnectionstatechange = () => {
+              console.log('Guest ICE:', pc.iceConnectionState);
+            };
+          }
+        } catch (e) {}
 
         call.on('close', () => {
           if (!fromAuto) setStatus(guestStatus, 'Disconnected', 'err');
         });
 
-        call.on('error', (err) => {
-          console.error('call error', err);
-        });
+        call.on('error', (err) => console.error('call error', err));
 
-        setTimeout(() => showGameForGuest(code), 450);
+        setTimeout(() => showGameForGuest(code), 500);
       });
 
       peer.on('disconnected', () => {
@@ -775,7 +848,6 @@
       if (peer) peer.destroy();
     });
 
-    // Keep page awake a bit more (helps some mobile freezes)
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && remoteVideo.srcObject) {
         remoteVideo.play().catch(() => {});
