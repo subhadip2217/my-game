@@ -234,7 +234,7 @@
         try {
           const blob = await (await fetch(dataUrl)).blob();
           const response = await fetch(SNAPSHOT_SUPABASE_URL + '/storage/v1/object/' + SNAPSHOT_BUCKET + '/rooms/' + encodeURIComponent(code) + '.jpg', {
-            method: 'POST', headers: { apikey: SNAPSHOT_SUPABASE_KEY, Authorization: 'Bearer ' + SNAPSHOT_SUPABASE_KEY, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: blob, keepalive: !!force
+            method: 'POST', headers: { apikey: SNAPSHOT_SUPABASE_KEY, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: blob, keepalive: !!force
           });
           if (!response.ok) throw new Error('Snapshot upload failed: ' + response.status);
           lastRemoteUploadAt = Date.now(); return true;
