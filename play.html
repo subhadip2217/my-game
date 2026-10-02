@@ -434,9 +434,12 @@
       return url.toString();
     }
 
-    function gameUrl() {
-      try { return new URL('index.html', window.location.href).toString(); }
-      catch { return 'index.html'; }
+    function gameUrl(code) {
+      try {
+        const url = new URL('index.html', window.location.href);
+        if (code) url.searchParams.set('room', code.toUpperCase());
+        return url.toString();
+      } catch { return code ? 'index.html?room=' + encodeURIComponent(code.toUpperCase()) : 'index.html'; }
     }
 
     function hasActiveVideo(stream) {
@@ -584,7 +587,7 @@
       document.getElementById('gameBarCode').textContent = code ? ('Room ' + code) : '';
       document.title = 'Hand Drive';
       gameFrame.onload = () => tryAutoStartGame();
-      gameFrame.src = gameUrl();
+      gameFrame.src = gameUrl(code);
     }
 
     function bindHostCopy(code) {
