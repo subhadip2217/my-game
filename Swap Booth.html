@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Swap Booth</title>
+<style>
+:root{--bg:#f4f1fb;--fg:#1d1930;--card:#ffffff;--ac:#7c3aed;--mut:#6b6684;--bd:#ddd6f3;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14121f;--fg:#f1eefc;--card:#1f1b30;--ac:#a78bfa;--mut:#a39fbd;--bd:#352f50}}
+:root[data-theme="dark"]{--bg:#14121f;--fg:#f1eefc;--card:#1f1b30;--ac:#a78bfa;--mut:#a39fbd;--bd:#352f50}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;justify-content:center}
+main{width:100%;max-width:640px;padding:16px}
+h1{font-size:1.5rem;margin:4px 0 2px}
+.sub{color:var(--mut);margin:0 0 12px;font-size:.92rem}
+canvas{width:100%;height:auto;border-radius:16px;background:#000;display:block;border:1px solid var(--bd)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.lbl{font-size:.8rem;color:var(--mut);width:100%}
+button{font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--card);color:var(--fg);padding:10px 16px;border-radius:999px}
+button.on{border-color:var(--ac);outline:2px solid var(--ac)}
+button.main{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600;padding:12px 22px}
+.sw{width:34px;height:34px;padding:0;border-radius:50%}
+.card{margin-top:12px;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px 14px}
+.card b{font-size:1.15rem}
+.hide{display:none}
+.note{color:var(--mut);font-size:.8rem;margin-top:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>🎭 Swap Booth</h1>
+<p class="sub">Fit your face in the oval, hit Swap, and see your opposite-look version live.</p>
+<canvas id="cv" width="640" height="480"></canvas>
+
+<div class="row">
+  <span class="lbl">Show me with a…</span>
+  <button id="bf" class="on">👩 Female look</button>
+  <button id="bm">👨 Male look</button>
+</div>
+<div class="row"><span class="lbl">Hair colour</span><span id="sws" class="row" style="margin:0"></span></div>
+
+<div class="row">
+  <button id="go" class="main">📷 Start camera</button>
+  <button id="again" class="hide">🔄 Swap again</button>
+</div>
+<div id="msg" class="note"></div>
+<div id="res" class="card hide"><div>Meet your alter ego:</div><b id="nm"></b><div id="vb" style="color:var(--mut);margin-top:4px"></div></div>
+<p class="note">Everything runs in your browser. Your video never leaves your device. This is a fun AR-style filter, not a real AI face-swap.</p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d'),vid=document.createElement('video');
+vid.playsInline=true;vid.muted=true;
+const ly=document.createElement('canvas');
+let target='f',color='#1a1210',state='idle',count=3,box=null,fd=null,flash=0,pulse=0;
+const cols=['#1a1210','#4a2c1a','#8a3b1c','#d9b26a','#3b6cf0'];
+const names={f:['Ananya','Riya','Moumita','Sreya','Ishita','Tanisha'],m:['Arjun','Rohan','Aritra','Debraj','Soumyadeep','Kabir']};
+const vibes=['Main character energy','Certified heartbreaker','Topper in the making','Hostel royalty','Born for the stage'];
+const rgba=(h,a)=>{const n=parseInt(h.slice(1),16);return `rgba(${n>>16},${n>>8&255},${n&255},${a})`};
+
+cols.forEach(c=>{const b=document.createElement('button');b.className='sw'+(c===color?' on':'');b.style.background=c;b.setAttribute('aria-label','hair colour '+c);
+ b.onclick=()=>{color=c;document.querySelectorAll('.sw').forEach(x=>x.classList.toggle('on',x===b))};$('sws').appendChild(b)});
+
+function setTarget(t){target=t;$('bf').classList.toggle('on',t==='f');$('bm').classList.toggle('on',t==='m');if(state==='result')newCard()}
+$('bf').onclick=()=>setTarget('f');$('bm').onclick=()=>setTarget('m');
+
+function newCard(){const a=names[target];$('nm').textContent=a[Math.floor(Math.random()*a.length)]+' · '+(70+Math.floor(Math.random()*30))+'% vibe';$('vb').textContent=vibes[Math.floor(Math.random()*vibes.length)];$('res').classList.remove('hide')}
+
+function placeholder(){const g=ctx.createLinearGradient(0,0,640,480);g.addColorStop(0,'#2a1f4d');g.addColorStop(1,'#10101c');ctx.fillStyle=g;ctx.fillRect(0,0,640,480);
+ ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 28px system-ui,sans-serif';ctx.fillText('Tap "Start camera" to begin',320,240)}
+placeholder();
+
+async function start(){
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$('msg').textContent='Camera is not supported here. Try opening this page in Chrome or Safari in its own tab.';return}
+ try{
+  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
+  vid.srcObject=s;await vid.play();
+  cv.width=ly.width=vid.videoWidth||640;cv.height=ly.height=vid.videoHeight||480;
+  if('FaceDetector' in window){try{fd=new FaceDetector({fastMode:true,maxDetectedFaces:1})}catch(e){fd=null}}
+  setState('align');loop();detect();
+  $('msg').textContent=fd?'Face tracking is on.':'Tip: keep your face inside the oval (auto-tracking needs desktop Chrome).';
+ }catch(e){$('msg').textContent='Camera blocked. Allow camera access, or open this page in its own browser tab and try again.'}
+}
+
+function setState(s){state=s;
+ $('go').classList.toggle('hide',s==='result'||s==='count');
+ $('go').textContent=s==='idle'?'📷 Start camera':'✨ Swap me!';
+ $('again').classList.toggle('hide',s!=='result');
+ if(s!=='result')$('res').classList.add('hide')}
+
+$('go').onclick=()=>{if(state==='idle')start();else if(state==='align'){count=3;setState('count');tick()}};
+$('again').onclick=()=>setState('align');
+function tick(){if(state!=='count')return;setTimeout(()=>{count--;if(count>0)tick();else{flash=1;setState('result');newCard()}},900)}
+
+async function detect(){
+ if(!fd)return;
+ try{const f=await fd.detect(vid);
+  if(f[0]){const b=f[0].boundingBox,n={cx:cv.width-(b.x+b.width/2),cy:b.y+b.height/2,w:b.width,h:b.height*1.05};
+   box=box?{cx:box.cx+(n.cx-box.cx)*.4,cy:box.cy+(n.cy-box.cy)*.4,w:box.w+(n.w-box.w)*.4,h:box.h+(n.h-box.h)*.4}:n}
+  else box=null}catch(e){fd=null;return}
+ setTimeout(detect,80)}
+
+const geo=()=>box||{cx:cv.width/2,cy:cv.height*.48,w:cv.height*.46,h:cv.height*.6};
+
+function look(g){
+ const W=cv.width,H=cv.height,{cx,cy}=g,rx=g.w/2,ry=g.h/2,L=ly.getContext('2d');
+ L.clearRect(0,0,W,H);L.globalCompositeOperation='source-over';
+ if(target==='f'){
+  L.fillStyle=color;L.beginPath();
+  L.moveTo(cx-rx*1.35,cy+ry*2.2);
+  L.bezierCurveTo(cx-rx*1.7,cy-ry*.2,cx-rx*1.3,cy-ry*1.5,cx,cy-ry*1.35);
+  L.bezierCurveTo(cx+rx*1.3,cy-ry*1.5,cx+rx*1.7,cy-ry*.2,cx+rx*1.35,cy+ry*2.2);
+  L.closePath();L.fill();
+  L.globalCompositeOperation='source-atop';
+  const gr=L.createLinearGradient(0,cy-ry*1.4,0,cy+ry*2);gr.addColorStop(0,'rgba(255,255,255,.28)');gr.addColorStop(1,'rgba(255,255,255,0)');
+  L.fillStyle=gr;L.fillRect(0,0,W,H);
+  L.globalCompositeOperation='destination-out';
+  L.beginPath();L.ellipse(cx,cy+ry*.02,rx*.98,ry,0,0,7);L.fill();
+  L.fillRect(cx-rx*.85,cy,rx*1.7,H);
+ }else{
+  L.fillStyle=color;L.beginPath();L.ellipse(cx,cy-ry*.62,rx*1.12,ry*.62,0,0,7);L.fill();
+  L.globalCompositeOperation='destination-out';
+  L.beginPath();L.ellipse(cx,cy+ry*.1,rx*.95,ry*.78,0,0,7);L.fill();
+  L.globalCompositeOperation='source-over';
+  const bg=L.createLinearGradient(0,cy+ry*.1,0,cy+ry*.45);bg.addColorStop(0,rgba(color,0));bg.addColorStop(1,rgba(color,.88));
+  L.fillStyle=bg;L.beginPath();L.ellipse(cx,cy+ry*.12,rx*.98,ry*.98,0,0,Math.PI);L.fill();
+  L.globalCompositeOperation='destination-out';
+  L.beginPath();L.ellipse(cx,cy+ry*.52,rx*.22,ry*.08,0,0,7);L.fill();
+  L.globalCompositeOperation='source-over';
+  L.fillStyle=rgba(color,.95);
+  [-1,1].forEach(s=>{L.beginPath();L.ellipse(cx+s*rx*.16,cy+ry*.37,rx*.2,ry*.05,s*-.25,0,7);L.fill()});
+ }
+ ctx.save();ctx.globalAlpha=.93;ctx.drawImage(ly,0,0);ctx.restore();
+ const ey=cy-ry*.2;
+ if(target==='f'){
+  [-1,1].forEach(s=>{
+   const bl=ctx.createRadialGradient(cx+s*rx*.55,cy+ry*.2,0,cx+s*rx*.55,cy+ry*.2,rx*.4);bl.addColorStop(0,'rgba(255,80,120,.38)');bl.addColorStop(1,'rgba(255,80,120,0)');
+   ctx.fillStyle=bl;ctx.fillRect(cx+s*rx*.55-rx*.4,cy+ry*.2-rx*.4,rx*.8,rx*.8);
+   ctx.strokeStyle='rgba(10,10,10,.85)';ctx.lineWidth=Math.max(2,rx*.04);ctx.lineCap='round';
+   ctx.beginPath();ctx.ellipse(cx+s*rx*.4,ey,rx*.2,ry*.07,0,Math.PI*1.05,Math.PI*1.95);ctx.stroke();
+   for(let i=0;i<3;i++){const a=Math.PI*(1.55+i*.15),x0=cx+s*rx*.4+s*Math.cos(a)*rx*.2*.9,y0=ey+Math.sin(a)*ry*.07;
+    ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x0+s*rx*.08,y0-ry*.06);ctx.stroke()}
+  });
+  ctx.fillStyle='rgba(205,25,70,.68)';
+  ctx.beginPath();ctx.ellipse(cx,cy+ry*.48,rx*.26,ry*.055,0,0,7);ctx.fill();
+  ctx.beginPath();ctx.ellipse(cx,cy+ry*.52,rx*.22,ry*.05,0,0,7);ctx.fill();
+ }else{
+  ctx.strokeStyle=rgba(color,.7);ctx.lineWidth=Math.max(3,rx*.07);ctx.lineCap='round';
+  [-1,1].forEach(s=>{ctx.beginPath();ctx.moveTo(cx+s*rx*.18,cy-ry*.36);ctx.quadraticCurveTo(cx+s*rx*.4,cy-ry*.45,cx+s*rx*.62,cy-ry*.34);ctx.stroke()});
+ }
+}
+
+function loop(){
+ const W=cv.width,H=cv.height;pulse+=.08;
+ ctx.save();ctx.translate(W,0);ctx.scale(-1,1);
+ ctx.filter=state==='result'?(target==='f'?'brightness(1.06) saturate(1.12) contrast(.94)':'contrast(1.12) brightness(.97)'):'none';
+ ctx.drawImage(vid,0,0,W,H);ctx.restore();ctx.filter='none';
+ const g=geo();
+ if(state==='result')look(g);
+ else{
+  ctx.save();ctx.strokeStyle='rgba(255,255,255,'+(.65+Math.sin(pulse)*.25)+')';ctx.lineWidth=3;ctx.setLineDash([12,8]);
+  ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.w/2,g.h/2,0,0,7);ctx.stroke();ctx.restore();
+  ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 18px system-ui,sans-serif';ctx.shadowColor='#000';ctx.shadowBlur=6;
+  ctx.fillText(state==='count'?'Hold still…':'Fit your face in the oval',W/2,H-20);ctx.shadowBlur=0;
+ }
+ if(state==='count'){ctx.fillStyle='#fff';ctx.font='bold 120px system-ui,sans-serif';ctx.shadowColor='#000';ctx.shadowBlur=14;ctx.fillText(count,W/2,H/2+40);ctx.shadowBlur=0}
+ if(flash>0){ctx.fillStyle='rgba(255,255,255,'+flash+')';ctx.fillRect(0,0,W,H);flash-=.06}
+ requestAnimationFrame(loop)
+}
+</script>
+</body>
+</html>
