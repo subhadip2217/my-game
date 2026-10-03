@@ -78,6 +78,7 @@
       transform: scaleX(-1); background: #000;
     }
     .video-wrap img.freeze-img { position: absolute; inset: 0; z-index: 2; }
+    .video-wrap img.freeze-img.face-result { transform: none; }
     .video-wrap img.freeze-img.hidden { display: none; }
     .video-label {
       position: absolute; top: 10px; left: 10px; z-index: 3;
@@ -100,6 +101,7 @@
       width: 44px; height: 44px; border-radius: 8px; object-fit: cover;
       background: #000; flex-shrink: 0; transform: scaleX(-1);
     }
+    .room-chip img.face-result { transform: none; }
     .room-chip .meta { flex: 1; min-width: 0; }
     .room-chip .code {
       font-family: ui-monospace, monospace; font-weight: 700;
@@ -349,7 +351,8 @@
       list.unshift({
         code,
         dataUrl: dataUrl || (prev && prev.dataUrl) || null,
-        ts: Date.now()
+        ts: Date.now(),
+        gameType: activeHostGameType
       });
       saveRooms(list);
       activeRoomCode = code;
@@ -367,7 +370,7 @@
         const item = list.splice(idx, 1)[0];
         list.unshift(item);
       } else {
-        list.unshift({ code, dataUrl, ts: Date.now() });
+        list.unshift({ code, dataUrl, ts: Date.now(), gameType: activeHostGameType });
       }
       saveRooms(list);
     }
@@ -405,7 +408,7 @@
         const row = document.createElement('div');
         row.className = 'room-chip';
         const imgHtml = r.dataUrl
-          ? '<img src="' + r.dataUrl + '" alt="" />'
+          ? '<img class="' + (r.gameType === 'face' ? 'face-result' : '') + '" src="' + r.dataUrl + '" alt="" />'
           : '<img alt="" style="background:#1a2332" />';
         row.innerHTML =
           imgHtml +
@@ -472,6 +475,7 @@
     function showSnapshotOnScreen(dataUrl, label) {
       if (!dataUrl) return false;
       freezeImg.src = dataUrl;
+      freezeImg.classList.toggle('face-result', String(label || '').toLowerCase().includes('face ratio'));
       freezeImg.classList.remove('hidden');
       document.getElementById('remoteLabel').textContent = label || 'Last snapshot';
       return true;
@@ -479,6 +483,7 @@
 
     function hideSnapshot() {
       freezeImg.classList.add('hidden');
+      freezeImg.classList.remove('face-result');
       freezeImg.removeAttribute('src');
     }
 
@@ -496,7 +501,7 @@
     function restoreSavedSnapshot(code) {
       const room = getRoom(code);
       if (room && room.dataUrl) {
-        showSnapshotOnScreen(room.dataUrl, 'Last saved photo');
+        showSnapshotOnScreen(room.dataUrl, room.gameType === 'face' ? 'Last Face Ratio result' : 'Last saved photo');
         setStatus(hostStatus, 'Showing last saved photo — waiting for player', 'ok');
       }
       restoreRemoteSnapshot(code);
