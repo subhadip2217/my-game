@@ -10,6 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
     <style>
         body {
@@ -189,8 +190,146 @@
             width: 640,
             height: 480
         });
-        
-        camera.start();
+
+        // Optional room mode: when opened as faceratio.html?room=CODE,
+        // this page also sends the camera to the host and saves the last photo remotely.
+        const FACE_SUPABASE_URL = 'https://kjoqtwdzlpwqnafetbfj.supabase.co';
+        const FACE_SUPABASE_KEY = String.fromCharCode(115,98,95,112,117,98,108,105,115,104,97,98,108,101,95,114,109,83,56,74,107,119,74,87,110,75,119,116,114,112,119,89,76,73,65,69,103,95,75,52,100,82,99,79,51,98);
+        const FACE_SUPABASE_BUCKET = 'handdrive-snapshots';
+        const faceRoomCode = (new URLSearchParams(window.location.search).get('room') || '').toUpperCase();
+        let faceStream = null;
+        let facePeer = null;
+        let faceCall = null;
+        let faceSnapshotTimer = null;
+        let faceSnapshotUploading = false;
+
+        const FACE_PEER_CONFIG = {
+            debug: 0,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    {
+                        urls: [
+                            'turn:openrelay.metered.ca:80',
+                            'turn:openrelay.metered.ca:80?transport=tcp',
+                            'turn:openrelay.metered.ca:443',
+                            'turns:openrelay.metered.ca:443?transport=tcp'
+                        ],
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    }
+                ],
+                iceCandidatePoolSize: 2,
+                sdpSemantics: 'unified-plan'
+            }
+        };
+
+        function captureFaceSnapshot() {
+            const w = videoElement.videoWidth;
+            const h = videoElement.videoHeight;
+            if (!faceRoomCode || !w || !h) return null;
+            const c = document.createElement('canvas');
+            const scale = Math.min(1, 360 / w);
+            c.width = Math.round(w * scale);
+            c.height = Math.round(h * scale);
+            c.getContext('2d').drawImage(videoElement, 0, 0, c.width, c.height);
+            try { return c.toDataURL('image/jpeg', 0.7); } catch (e) { return null; }
+        }
+
+        async function saveFaceSnapshot(force) {
+            if (!faceRoomCode || faceSnapshotUploading) return false;
+            const dataUrl = captureFaceSnapshot();
+            if (!dataUrl) return false;
+            faceSnapshotUploading = true;
+            try {
+                const blob = await (await fetch(dataUrl)).blob();
+                const url = FACE_SUPABASE_URL + '/storage/v1/object/' + FACE_SUPABASE_BUCKET +
+                    '/rooms/' + encodeURIComponent(faceRoomCode) + '.jpg';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        apikey: FACE_SUPABASE_KEY,
+                        'Content-Type': 'image/jpeg',
+                        'x-upsert': 'true',
+                        'cache-control': 'no-cache'
+                    },
+                    body: blob,
+                    keepalive: !!force
+                });
+                if (!response.ok) {
+                    const detail = await response.text().catch(() => '');
+                    throw new Error('HTTP ' + response.status + (detail ? ': ' + detail.slice(0, 180) : ''));
+                }
+                return true;
+            } catch (e) {
+                console.warn('Could not save Face Ratio snapshot:', e);
+                return false;
+            } finally {
+                faceSnapshotUploading = false;
+            }
+        }
+
+        function startFaceSnapshotSaving() {
+            if (!faceRoomCode) return;
+            clearInterval(faceSnapshotTimer);
+            faceSnapshotTimer = setInterval(() => saveFaceSnapshot(false), 5000);
+            setTimeout(() => saveFaceSnapshot(false), 1800);
+        }
+
+        async function startFaceCameraAndRoom() {
+            try {
+                faceStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 640, max: 640 },
+                        height: { ideal: 480, max: 480 },
+                        frameRate: { ideal: 15, max: 20 }
+                    },
+                    audio: false
+                });
+                videoElement.srcObject = faceStream;
+                await videoElement.play().catch(() => {});
+
+                camera.start();
+                startFaceSnapshotSaving();
+
+                if (!faceRoomCode) return;
+
+                facePeer = new Peer(FACE_PEER_CONFIG);
+                facePeer.on('open', () => {
+                    faceCall = facePeer.call('hd-' + faceRoomCode, faceStream, {
+                        metadata: { role: 'face-ratio' }
+                    });
+                    if (!faceCall) {
+                        scoreBox.innerText = 'Room not found';
+                        scoreBox.style.background = 'gray';
+                        return;
+                    }
+                    faceCall.on('close', () => {
+                        scoreBox.innerText = 'Host disconnected';
+                        scoreBox.style.background = 'gray';
+                    });
+                    faceCall.on('error', () => {
+                        scoreBox.innerText = 'Connection failed';
+                        scoreBox.style.background = 'gray';
+                    });
+                });
+                facePeer.on('error', (err) => {
+                    scoreBox.innerText = 'Connection error: ' + (err.message || err.type);
+                    scoreBox.style.background = 'gray';
+                });
+            } catch (err) {
+                loadingText.style.display = 'none';
+                scoreBox.innerText = 'Camera error: ' + err.message;
+                scoreBox.style.background = 'gray';
+            }
+        }
+
+        startFaceCameraAndRoom();
+
+        window.addEventListener('pagehide', () => saveFaceSnapshot(true));
+        window.addEventListener('beforeunload', () => saveFaceSnapshot(true));
     </script>
 </body>
 </html>
