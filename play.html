@@ -206,7 +206,7 @@
 
   <div id="gameShell">
     <div id="gameBar">
-      <span><span class="dot"></span>Playing Hand Drive</span>
+      <span><span class="dot"></span><span id="gameBarTitle">Playing Hand Drive</span></span>
       <span id="gameBarCode" style="opacity:0.6"></span>
     </div>
     <iframe id="gameFrame" src="about:blank" allow="camera; microphone; fullscreen" title="Hand Drive"></iframe>
@@ -591,6 +591,8 @@
       autoJoinOverlay.classList.remove('active');
       if (footerNote) footerNote.classList.add('hidden');
       gameShell.classList.add('active');
+      document.getElementById('gameBarTitle').textContent =
+        gameType === 'face' ? 'Playing Face Ratio' : 'Playing Hand Drive';
       document.getElementById('gameBarCode').textContent =
         code ? ('Room ' + code + (gameType === 'face' ? ' · Face Ratio' : ' · Hand Drive')) : '';
       document.title = gameType === 'face' ? 'Golden Ratio Face' : 'Hand Drive';
