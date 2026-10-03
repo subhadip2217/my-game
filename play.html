@@ -417,7 +417,7 @@
         const btn = document.createElement('button');
         btn.className = 'btn-primary';
         btn.textContent = 'Open';
-        btn.onclick = () => startAsHost(r.code);
+        btn.onclick = () => startAsHost(r.code, r.gameType || 'hand');
         row.appendChild(btn);
         recentList.appendChild(row);
       });
@@ -713,6 +713,8 @@
         const u = new URL(window.location.href);
         u.searchParams.delete('play');
         u.searchParams.set('host', code);
+        if (gameType === 'face') u.searchParams.set('game', 'face');
+        else u.searchParams.delete('game');
         history.replaceState({}, '', u.toString());
       } catch (e) {}
 
@@ -926,7 +928,7 @@
     const gameType = params.get('game') === 'face' ? 'face' : 'hand';
 
     if (playCode) startAsGuest(playCode, true, gameType);
-    else if (hostCode) startAsHost(hostCode.toUpperCase());
+    else if (hostCode) startAsHost(hostCode.toUpperCase(), gameType);
     else renderRecentRooms();
   </script>
 </body>
