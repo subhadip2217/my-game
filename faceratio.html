@@ -237,6 +237,7 @@
             // Save the processed frame in its natural orientation. The host page
             // displays Face Ratio result images without mirroring so the score
             // text remains readable.
+            ctx.drawImage(source, 0, 0, c.width, c.height);
 
             // Put the current Face Ratio result directly onto the saved photo.
             const resultText = scoreBox.innerText || 'Golden Ratio Match: Scanning...';
