@@ -254,8 +254,10 @@
         const blob = await response.blob();
         const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob); });
         if (!dataUrl) return false;
-        showSnapshotOnScreen(dataUrl, 'Last saved photo'); updateRoomPhoto(code, dataUrl);
-        setStatus(hostStatus, 'Showing last saved photo — waiting for player', 'ok'); return true;
+        showSnapshotOnScreen(dataUrl, activeHostGameType === 'face' ? 'Last Face Ratio result' : 'Last saved photo'); updateRoomPhoto(code, dataUrl);
+        setStatus(hostStatus, activeHostGameType === 'face'
+          ? 'Showing last Face Ratio result — waiting for player'
+          : 'Showing last saved photo — waiting for player', 'ok'); return true;
       } catch (e) { return false; }
     }
     const MAX_ROOMS = 3;
@@ -505,8 +507,10 @@
       stopPeriodicSnap();
       snapInterval = setInterval(() => {
         if (!remoteVideo.srcObject || remoteVideo.videoWidth < 2) return;
-        const dataUrl = captureVideoAsJpeg(360);
-        if (dataUrl) { updateRoomPhoto(code, dataUrl); uploadRemoteSnapshot(code, dataUrl, false); }
+        if (activeHostGameType !== 'face') {
+          const dataUrl = captureVideoAsJpeg(360);
+          if (dataUrl) { updateRoomPhoto(code, dataUrl); uploadRemoteSnapshot(code, dataUrl, false); }
+        }
       }, 4000);
     }
 
@@ -514,12 +518,32 @@
       if (snapInterval) { clearInterval(snapInterval); snapInterval = null; }
     }
 
-    function onPlayerDisconnected() {
+    async function onPlayerDisconnected() {
       stopFreezeWatch();
       stopPeriodicSnap();
-      const ok = freezeAndPersist(activeRoomCode);
-      document.getElementById('remoteLabel').textContent = ok ? 'Last frame (saved)' : 'Disconnected';
-      setStatus(hostStatus, 'Player left — photo kept. Waiting for next join…', 'err');
+
+      let ok = false;
+      if (activeHostGameType === 'face') {
+        // Face Ratio players upload an annotated snapshot containing the
+        // Golden Ratio score. Keep that image instead of overwriting it
+        // with a raw frame captured from the PeerJS video.
+        ok = await restoreRemoteSnapshot(activeRoomCode);
+        if (!ok) {
+          const room = getRoom(activeRoomCode);
+          if (room && room.dataUrl) {
+            showSnapshotOnScreen(room.dataUrl, 'Last Face Ratio result');
+            ok = true;
+          }
+        }
+        document.getElementById('remoteLabel').textContent = ok ? 'Last Face Ratio result' : 'Disconnected';
+      } else {
+        ok = freezeAndPersist(activeRoomCode);
+        document.getElementById('remoteLabel').textContent = ok ? 'Last frame (saved)' : 'Disconnected';
+      }
+
+      setStatus(hostStatus, activeHostGameType === 'face'
+        ? (ok ? 'Player left — last Face Ratio result kept. Waiting for next join…' : 'Player left — waiting for next join…')
+        : 'Player left — photo kept. Waiting for next join…', ok ? 'ok' : 'err');
       setTimeout(() => { try { remoteVideo.srcObject = null; } catch (e) {} }, 120);
       currentCall = null;
     }
@@ -547,8 +571,10 @@
       startFreezeWatch();
       startPeriodicSnap(activeRoomCode);
       setTimeout(() => {
-        const dataUrl = captureVideoAsJpeg(360);
-        if (dataUrl) { updateRoomPhoto(activeRoomCode, dataUrl); uploadRemoteSnapshot(activeRoomCode, dataUrl, true); }
+        if (activeHostGameType !== 'face') {
+          const dataUrl = captureVideoAsJpeg(360);
+          if (dataUrl) { updateRoomPhoto(activeRoomCode, dataUrl); uploadRemoteSnapshot(activeRoomCode, dataUrl, true); }
+        }
       }, 1500);
     }
 
