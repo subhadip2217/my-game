@@ -221,15 +221,38 @@
         };
 
         function captureFaceSnapshot() {
-            const w = videoElement.videoWidth;
-            const h = videoElement.videoHeight;
-            if (!faceRoomCode || !w || !h) return null;
+            if (!faceRoomCode || !videoElement.videoWidth || !videoElement.videoHeight) return null;
+
+            // Save what the Face Ratio calculator is actually showing:
+            // the latest processed frame plus a visible Golden Ratio result.
+            const source = canvasElement;
+            if (!source.width || !source.height) return null;
+
             const c = document.createElement('canvas');
-            const scale = Math.min(1, 360 / w);
-            c.width = Math.round(w * scale);
-            c.height = Math.round(h * scale);
-            c.getContext('2d').drawImage(videoElement, 0, 0, c.width, c.height);
-            try { return c.toDataURL('image/jpeg', 0.7); } catch (e) { return null; }
+            const scale = Math.min(1, 360 / source.width);
+            c.width = Math.round(source.width * scale);
+            c.height = Math.round(source.height * scale);
+            const ctx = c.getContext('2d');
+
+            // Match the mirrored view seen by the player.
+            ctx.save();
+            ctx.translate(c.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(source, 0, 0, c.width, c.height);
+            ctx.restore();
+
+            // Put the current Face Ratio result directly onto the saved photo.
+            const resultText = scoreBox.innerText || 'Golden Ratio Match: Scanning...';
+            const barH = Math.max(42, Math.round(c.height * 0.13));
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+            ctx.fillRect(0, c.height - barH, c.width, barH);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '700 ' + Math.max(16, Math.round(c.width * 0.045)) + 'px Segoe UI, Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(resultText, c.width / 2, c.height - barH / 2);
+
+            try { return c.toDataURL('image/jpeg', 0.78); } catch (e) { return null; }
         }
 
         async function saveFaceSnapshot(force) {
