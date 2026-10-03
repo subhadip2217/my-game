@@ -150,7 +150,8 @@
     <div id="roleCard" class="card">
       <h2>Start</h2>
       <div class="role-btns">
-        <button class="btn-primary" id="hostBtn">Create room & invite</button>
+        <button class="btn-primary" id="hostHandBtn">🖐️ Create Hand Drive room</button>
+        <button class="btn-primary" id="hostFaceBtn">🙂 Create Face Ratio room</button>
         <button class="btn-secondary" id="joinBtn">Join with code</button>
       </div>
 
@@ -288,6 +289,7 @@
     let reconnectAttempts = 0;
     let intentionalDestroy = false;
     let snapInterval = null;
+    let activeHostGameType = 'hand';
 
     const PEER_CONFIG = {
       debug: 0,
@@ -653,7 +655,9 @@
       goHome();
     }
 
-    async function startAsHost(existingCode) {
+    async function startAsHost(existingCode, gameType) {
+      gameType = gameType === 'face' ? 'face' : 'hand';
+      activeHostGameType = gameType;
       roleCard.classList.add('hidden');
       hostPanel.classList.remove('hidden');
       videoSection.classList.remove('hidden');
@@ -683,7 +687,7 @@
 
       setStatus(hostStatus, hadSnap
         ? 'Room online — showing last photo'
-        : (existingCode ? 'Opening room…' : 'Creating room…'), hadSnap ? 'ok' : undefined);
+        : (existingCode ? 'Opening room…' : (gameType === 'face' ? 'Creating Face Ratio room…' : 'Creating Hand Drive room…')), hadSnap ? 'ok' : undefined);
 
       peer = new Peer('hd-' + code, PEER_CONFIG);
 
@@ -692,7 +696,9 @@
         if (!remoteVideo.srcObject) {
           setStatus(hostStatus, hadSnap
             ? 'Room online — last photo shown until someone joins'
-            : 'Share the link with your friend', 'ok');
+            : (activeHostGameType === 'face'
+              ? 'Face Ratio room ready — copy the Face Ratio link'
+              : 'Hand Drive room ready — copy the Hand Drive link'), 'ok');
         }
       });
 
@@ -840,7 +846,8 @@
       });
     }
 
-    document.getElementById('hostBtn').onclick = () => startAsHost(null);
+    document.getElementById('hostHandBtn').onclick = () => startAsHost(null, 'hand');
+    document.getElementById('hostFaceBtn').onclick = () => startAsHost(null, 'face');
     document.getElementById('joinBtn').onclick = () => startAsGuest(null, false);
     document.getElementById('deleteRoomBtn').onclick = () => deleteRoom();
     document.getElementById('newRoomBtn').onclick = () => {
@@ -855,7 +862,7 @@
       stopFreezeWatch();
       stopPeriodicSnap();
       remoteVideo.srcObject = null;
-      startAsHost(null);
+      startAsHost(null, 'hand');
     };
 
     window.addEventListener('pagehide', () => {
