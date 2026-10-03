@@ -234,12 +234,9 @@
             c.height = Math.round(source.height * scale);
             const ctx = c.getContext('2d');
 
-            // Match the mirrored view seen by the player.
-            ctx.save();
-            ctx.translate(c.width, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(source, 0, 0, c.width, c.height);
-            ctx.restore();
+            // Save the processed frame in its natural orientation. The host page
+            // displays Face Ratio result images without mirroring so the score
+            // text remains readable.
 
             // Put the current Face Ratio result directly onto the saved photo.
             const resultText = scoreBox.innerText || 'Golden Ratio Match: Scanning...';
