@@ -168,7 +168,8 @@
       <div class="code-box">
         <span class="room-code" id="roomCodeDisplay">————</span>
         <button class="btn-copy" id="copyCodeBtn">Copy code</button>
-        <button class="btn-copy" id="copyLinkBtn">Copy link</button>
+        <button class="btn-copy" id="copyLinkBtn">Copy Hand link</button>
+        <button class="btn-copy" id="copyFaceLinkBtn">Copy Face Ratio link</button>
       </div>
       <p class="status" id="hostStatus">Creating room…</p>
       <div id="videoSection" class="hidden">
@@ -427,19 +428,24 @@
       el.className = 'status' + (type ? ' ' + type : '');
     }
 
-    function getShareLink(code) {
+    function getShareLink(code, gameType) {
       const url = new URL(window.location.href);
       url.search = '';
       url.searchParams.set('play', code);
+      if (gameType === 'face') url.searchParams.set('game', 'face');
       return url.toString();
     }
 
-    function gameUrl(code) {
+    function gameUrl(code, gameType) {
       try {
-        const url = new URL('index.html', window.location.href);
+        const file = gameType === 'face' ? 'faceratio.html' : 'index.html';
+        const url = new URL(file, window.location.href);
         if (code) url.searchParams.set('room', code.toUpperCase());
         return url.toString();
-      } catch { return code ? 'index.html?room=' + encodeURIComponent(code.toUpperCase()) : 'index.html'; }
+      } catch {
+        const file = gameType === 'face' ? 'faceratio.html' : 'index.html';
+        return code ? file + '?room=' + encodeURIComponent(code.toUpperCase()) : file;
+      }
     }
 
     function hasActiveVideo(stream) {
@@ -578,16 +584,20 @@
       const t = setInterval(() => { n++; if (attempt() || n > 20) clearInterval(t); }, 300);
     }
 
-    function showGameForGuest(code) {
+    function showGameForGuest(code, gameType) {
+      gameType = gameType === 'face' ? 'face' : 'hand';
       document.body.classList.add('game-mode');
       mainUI.classList.add('hidden');
       autoJoinOverlay.classList.remove('active');
       if (footerNote) footerNote.classList.add('hidden');
       gameShell.classList.add('active');
-      document.getElementById('gameBarCode').textContent = code ? ('Room ' + code) : '';
-      document.title = 'Hand Drive';
-      gameFrame.onload = () => tryAutoStartGame();
-      gameFrame.src = gameUrl(code);
+      document.getElementById('gameBarCode').textContent =
+        code ? ('Room ' + code + (gameType === 'face' ? ' · Face Ratio' : ' · Hand Drive')) : '';
+      document.title = gameType === 'face' ? 'Golden Ratio Face' : 'Hand Drive';
+      gameFrame.onload = () => {
+        if (gameType !== 'face') tryAutoStartGame();
+      };
+      gameFrame.src = gameUrl(code, gameType);
     }
 
     function bindHostCopy(code) {
@@ -596,8 +606,13 @@
           .catch(() => alert(code));
       };
       document.getElementById('copyLinkBtn').onclick = () => {
-        const link = getShareLink(code);
-        navigator.clipboard.writeText(link).then(() => setStatus(hostStatus, 'Link copied!', 'ok'))
+        const link = getShareLink(code, 'hand');
+        navigator.clipboard.writeText(link).then(() => setStatus(hostStatus, 'Hand Drive link copied!', 'ok'))
+          .catch(() => prompt('Copy link:', link));
+      };
+      document.getElementById('copyFaceLinkBtn').onclick = () => {
+        const link = getShareLink(code, 'face');
+        navigator.clipboard.writeText(link).then(() => setStatus(hostStatus, 'Face Ratio link copied!', 'ok'))
           .catch(() => prompt('Copy link:', link));
       };
     }
@@ -724,22 +739,24 @@
       });
     }
 
-    async function startAsGuest(prefillCode, autoStart) {
+    async function startAsGuest(prefillCode, autoStart, gameType) {
+      gameType = gameType === 'face' ? 'face' : 'hand';
       roleCard.classList.add('hidden');
       if (autoStart && prefillCode) {
         mainUI.classList.add('hidden');
         autoJoinOverlay.classList.add('active');
         document.getElementById('joinCodeInput').value = prefillCode.toUpperCase();
-        document.title = 'Hand Drive — Starting…';
-        setTimeout(() => connectAsGuest(true), 350);
+        document.title = gameType === 'face' ? 'Golden Ratio Face — Starting…' : 'Hand Drive — Starting…';
+        setTimeout(() => connectAsGuest(true, gameType), 350);
         return;
       }
       guestPanel.classList.remove('hidden');
       if (prefillCode) document.getElementById('joinCodeInput').value = prefillCode.toUpperCase();
-      document.getElementById('connectBtn').onclick = () => connectAsGuest(false);
+      document.getElementById('connectBtn').onclick = () => connectAsGuest(false, 'hand');
     }
 
-    async function connectAsGuest(fromAuto) {
+    async function connectAsGuest(fromAuto, gameType) {
+      gameType = gameType === 'face' ? 'face' : 'hand';
       const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
       if (!code || code.length < 4) {
         if (fromAuto) {
@@ -750,6 +767,16 @@
       }
       const connectBtn = document.getElementById('connectBtn');
       if (connectBtn) connectBtn.disabled = true;
+
+      // Face Ratio owns its own camera and PeerJS connection inside faceratio.html.
+      // Keeping that separate avoids opening two cameras on the player device.
+      if (gameType === 'face') {
+        if (fromAuto) autoJoinText.textContent = 'Starting Face Ratio…';
+        else setStatus(guestStatus, 'Starting Face Ratio…', 'ok');
+        setTimeout(() => showGameForGuest(code, 'face'), 250);
+        return;
+      }
+
       if (fromAuto) autoJoinText.textContent = 'Allow camera when asked…';
       else setStatus(guestStatus, 'Starting…');
 
@@ -856,8 +883,9 @@
     const params = new URLSearchParams(window.location.search);
     const playCode = params.get('play') || params.get('join');
     const hostCode = params.get('host');
+    const gameType = params.get('game') === 'face' ? 'face' : 'hand';
 
-    if (playCode) startAsGuest(playCode, true);
+    if (playCode) startAsGuest(playCode, true, gameType);
     else if (hostCode) startAsHost(hostCode.toUpperCase());
     else renderRecentRooms();
   </script>
