@@ -687,6 +687,10 @@
     }
 
     async function startAsHost(existingCode, gameType) {
+      // When reopening/reconnecting an existing room, recover its game type
+      // from localStorage if the caller did not provide one.
+      const savedRoom = existingCode ? getRoom(existingCode) : null;
+      if (!gameType && savedRoom && savedRoom.gameType) gameType = savedRoom.gameType;
       gameType = gameType === 'face' ? 'face' : 'hand';
       activeHostGameType = gameType;
       roleCard.classList.add('hidden');
