@@ -182,14 +182,9 @@
         
         faceMesh.onResults(onResults);
 
-        // Initialize Web Camera
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await faceMesh.send({image: videoElement});
-            },
-            width: 640,
-            height: 480
-        });
+        // Camera is started below with getUserMedia so the exact same stream
+        // can be sent to the room host. Do not use MediaPipe's Camera helper
+        // here because it would open a second camera stream.
 
         // Optional room mode: when opened as faceratio.html?room=CODE,
         // this page also sends the camera to the host and saves the last photo remotely.
@@ -291,7 +286,24 @@
                 videoElement.srcObject = faceStream;
                 await videoElement.play().catch(() => {});
 
-                camera.start();
+                // Feed the already-open camera stream into MediaPipe.
+                // This keeps the player camera and the PeerJS stream identical.
+                let processingFrame = false;
+                const processFaceFrame = async () => {
+                    if (!processingFrame && videoElement.readyState >= 2) {
+                        processingFrame = true;
+                        try {
+                            await faceMesh.send({image: videoElement});
+                        } catch (e) {
+                            console.warn('FaceMesh frame:', e);
+                        } finally {
+                            processingFrame = false;
+                        }
+                    }
+                    requestAnimationFrame(processFaceFrame);
+                };
+                requestAnimationFrame(processFaceFrame);
+
                 startFaceSnapshotSaving();
 
                 if (!faceRoomCode) return;
