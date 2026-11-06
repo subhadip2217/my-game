@@ -31,7 +31,7 @@ main{max-width:1100px;margin:auto}.top{display:flex;justify-content:space-betwee
 <div class="section-title">Your private room</div><p class="muted">Create a room and share its unique link with the person you want to see. They must tap to enable their camera and approve the browser's camera permission.</p>
 <div id="shareArea" class="hidden"><div class="status good">Room created. Share this link with your guest.</div><div class="share"><input class="field" id="inviteLink" readonly><button class="btn" id="copyBtn">Copy link</button></div><p class="small">Keep this link private. Anyone who has it can request to share their camera with you.</p></div>
 </div>
-<div id="guestPanel" class="hidden"><div class="section-title">Face analysis</div><div class="controls"><button class="btn primary" id="shareCameraBtn">Start camera & analyze</button><button class="btn danger hidden" id="stopSharingBtn">Stop camera</button></div><div class="status" id="guestStatus">Camera is off.</div><div id="guestAnalysis" class="card hidden"><div class="score-box"><div class="score-value" id="guestScore">—</div><div class="score-label">Overall Harmony Score</div></div><div id="guestRatios"></div></div></div>
+<div id="guestPanel" class="hidden"><div class="section-title">Face analysis</div><div class="controls"><button class="btn primary" id="shareCameraBtn">Start camera & analyze</button><button class="btn danger hidden" id="stopSharingBtn">Stop camera</button></div><div class="status hidden" id="guestStatus"></div><div id="guestAnalysis" class="card hidden"><div class="score-box"><div class="score-value" id="guestScore">—</div><div class="score-label">Overall Harmony Score</div></div><div id="guestRatios"></div></div></div>
 <div class="divider"></div><div class="section-title">Privacy controls</div>
 <ul class="muted" style="padding-left:18px;line-height:1.8"><li>The guest must actively agree and grant camera permission.</li><li>A visible sharing/saving notice stays on the guest page.</li><li>The guest can turn the camera off or stop sharing at any time.</li><li>Only the latest still photo is retained; there is no audio or continuous video recording.</li><li>Ending the room stops the live feed. The latest saved photo remains available through the private room link.</li></ul>
 </aside>
@@ -50,7 +50,7 @@ const randomRoom=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.
 let roomId=roomFromUrl||(params.get('mode')==='host'?params.get('room'):localStorage.getItem('handdrive-host-room'))||null,channel=null,stream=null,pc=null,savedObjectUrl=null,pendingCandidates=[],autoSaveTimer=null,guestSaveTimer=null,lastSavedAt=0;
 const rtcConfig={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
 const status=(msg,kind='')=>{$('status').textContent=msg;$('status').className='status '+kind};
-const guestStatus=(msg,kind='')=>{$('guestStatus').textContent=msg;$('guestStatus').className='status '+kind};
+const guestStatus=(msg,kind='')=>{const el=$('guestStatus');el.textContent=msg;el.className='status '+(kind||'')+(msg?'':' hidden');};
 function showRemote(){ $('placeholder').classList.add('hidden');$('remoteVideo').classList.remove('hidden');$('videoLabel').textContent='LIVE GUEST CAMERA';$('videoHeading').textContent='Guest live camera'; }
 function renderAnalysis(result,where){const score=$(where==='host'?'hostScore':'guestScore'),list=$(where==='host'?'hostRatios':'guestRatios'),card=$(where==='host'?'hostAnalysis':'guestAnalysis');score.textContent=result.overall+'%';score.style.color=result.overall>=88?'#34d399':result.overall>=72?'#fbbf24':'#f87171';list.innerHTML=result.rows.map(r=>'<div class="ratio-item"><strong>'+r.name+'</strong><div style="text-align:right">'+r.actual+' <span class="badge '+(r.score>=90?'good':r.score>=75?'ok':'bad')+'">'+r.score+'%</span><div class="small">Ideal: '+r.ideal+'</div></div></div>').join('');card.classList.remove('hidden');}
 async function runFaceAnalysis(video){
@@ -170,7 +170,7 @@ function stopGuestCamera(){
  $('guestPreview').srcObject=null;$('guestPreview').classList.add('hidden');
  $('shareCameraBtn').classList.remove('hidden');$('stopSharingBtn').classList.add('hidden');
  $('shareCameraBtn').disabled=false;
- guestStatus('Camera is off.');
+ guestStatus(''); $('guestStatus').classList.add('hidden');
  $('guestAnalysis').classList.add('hidden');
  send('guest-stopped');
 }
@@ -199,7 +199,6 @@ if(isGuest){
  const st=$('status'); if(st) st.classList.add('hidden');
  $('videoHeading').textContent='Your camera';
  for(const el of $('guestPanel').parentElement.children){if(el.id!=='guestPanel')el.classList.add('hidden');}
- guestStatus('Camera is off. Tap the button when you are ready to share.');
 }else if(roomId){
  $('createBtn').classList.add('hidden');$('endBtn').classList.remove('hidden');
  $('shareArea').classList.remove('hidden');
