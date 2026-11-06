@@ -14,7 +14,7 @@ main{max-width:1100px;margin:auto}.top{display:flex;justify-content:space-betwee
 </head>
 <body><main>
 <header class="top"><div class="brand"><div class="logo">◉</div><span>HandDrive Camera Room</span></div><span class="pill">🔒 Consent-based live sharing</span></header>
-<section class="hero"><div class="eyebrow">PRIVATE • LIVE • AUTOMATIC PHOTO SAVE</div><h1>Share a link. See them live.</h1><p>Create a room and send its invitation link. When the other person opens it, they can choose to share their camera. Their live video appears here, and the latest frame is automatically saved while sharing is active—with a clear notice on their screen.</p></section>
+<section class="hero" id="heroSection"><div class="eyebrow">PRIVATE • LIVE • AUTOMATIC PHOTO SAVE</div><h1>Share a link. See them live.</h1><p>Create a room and send its invitation link. When the other person opens it, they can choose to share their camera. Their live video appears here, and the latest frame is automatically saved while sharing is active—with a clear notice on their screen.</p></section>
 <div class="grid">
 <section class="panel">
 <div class="section-title" id="videoHeading">Waiting for your guest</div>
@@ -197,6 +197,7 @@ if(isGuest){
  $('hostPanel').classList.add('hidden');$('guestPanel').classList.remove('hidden');$('hostControls').classList.add('hidden');$('hostAnalysis').classList.add('hidden');
  const sps=$('savedPhotoSection'); if(sps) sps.classList.add('hidden');
  const st=$('status'); if(st) st.classList.add('hidden');
+ const hero=$('heroSection'); if(hero) hero.classList.add('hidden');
  $('videoHeading').textContent='Your camera';
  for(const el of $('guestPanel').parentElement.children){if(el.id!=='guestPanel')el.classList.add('hidden');}
 }else if(roomId){
