@@ -93,7 +93,7 @@ async function startGuestCamera(){
   const offer=await pc.createOffer();await pc.setLocalDescription(offer);send('offer',{description:pc.localDescription});
   $('shareCameraBtn').classList.add('hidden');$('stopSharingBtn').classList.remove('hidden');
   guestStatus('Camera active. Face analysis is starting…','good');await runFaceAnalysis($('guestPreview'));
- }catch(e){stopGuestCamera();$('shareCameraBtn').disabled=false;guestStatus('Could not share camera: '+e.message,'warn');}
+ }catch(e){send('guest-stopped');stopGuestCamera();$('shareCameraBtn').disabled=false;guestStatus('Camera or face analysis could not start: '+e.message,'warn');}
 }
 function stopAutoSave(){if(autoSaveTimer){clearInterval(autoSaveTimer);autoSaveTimer=null;}}
 function startAutoSave(){
