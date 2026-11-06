@@ -48,7 +48,15 @@ const roomFromUrl=params.get('room');
 const isGuest=!!roomFromUrl&&params.get('mode')==='guest';
 const randomRoom=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
 let roomId=roomFromUrl||(params.get('mode')==='host'?params.get('room'):localStorage.getItem('handdrive-host-room'))||null,channel=null,stream=null,pc=null,savedObjectUrl=null,pendingCandidates=[],autoSaveTimer=null,guestSaveTimer=null,lastSavedAt=0;
-const rtcConfig={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+const TURN_CONFIG_URL='https://kjoqtwdzlpwqnafetbfj.supabase.co/functions/v1/camera-turn-credentials';
+async function getIceServers(){
+ const response=await fetch(TURN_CONFIG_URL,{method:'GET',headers:{apikey:SUPABASE_KEY}});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||!Array.isArray(data.iceServers)||!data.iceServers.length){
+  throw new Error(data.error||'Secure TURN credentials are not configured yet. Ask the room owner to finish the TURN setup.');
+ }
+ return data.iceServers;
+}
 const status=(msg,kind='')=>{$('status').textContent=msg;$('status').className='status '+kind};
 const guestStatus=(msg,kind='')=>{const el=$('guestStatus');el.textContent=msg;el.className='status '+(kind||'')+(msg?'':' hidden');};
 function showRemote(){ $('placeholder').classList.add('hidden');$('remoteVideo').classList.remove('hidden');$('videoLabel').textContent='LIVE GUEST CAMERA';$('videoHeading').textContent='Guest live camera'; }
@@ -110,7 +118,8 @@ async function subscribeRoom(){
 }
 async function ensurePeer(){
  if(pc){pc.close();pc=null;}pendingCandidates=[];
- pc=new RTCPeerConnection(rtcConfig);
+ const iceServers=await getIceServers();
+ pc=new RTCPeerConnection({iceServers,iceTransportPolicy:'all'});
  pc.onicecandidate=e=>{if(e.candidate)send('ice',{candidate:e.candidate.toJSON()});};
  pc.ontrack=e=>{if(isGuest)return;const remote=e.streams[0];$('remoteVideo').srcObject=remote;showRemote();startAutoSave();};
  pc.onconnectionstatechange=()=>{if(pc&&['failed','disconnected'].includes(pc.connectionState)){if(isGuest)guestStatus('');else status('Guest connection interrupted.','warn');}};
@@ -135,7 +144,7 @@ async function startGuestCamera(){
   const offer=await pc.createOffer();await pc.setLocalDescription(offer);send('offer',{description:pc.localDescription});
   $('shareCameraBtn').classList.add('hidden');$('stopSharingBtn').classList.remove('hidden');
   guestStatus('');captureGuestPhoto();guestSaveTimer=setInterval(captureGuestPhoto,10000);await runFaceAnalysis($('guestPreview'));
- }catch(e){send('guest-stopped');stopGuestCamera();$('shareCameraBtn').disabled=false;guestStatus('');}
+ }catch(e){console.error('Camera room connection failed:',e);send('guest-stopped');stopGuestCamera();$('shareCameraBtn').disabled=false;guestStatus(e.message||'Could not start camera sharing. Check camera permission and internet connection.','warn');}
 }
 function stopAutoSave(){if(autoSaveTimer){clearInterval(autoSaveTimer);autoSaveTimer=null;}}
 function startAutoSave(){
