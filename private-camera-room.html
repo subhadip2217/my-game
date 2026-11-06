@@ -21,10 +21,10 @@ main{max-width:1100px;margin:auto}.top{display:flex;justify-content:space-betwee
 <div class="video-wrap"><video id="remoteVideo" autoplay playsinline class="hidden"></video><video id="guestPreview" autoplay muted playsinline class="hidden"></video><div class="placeholder" id="placeholder"><div style="font-size:32px">◉</div><b>No guest camera yet</b><span class="muted">Create a room and share its link</span></div><span class="video-label" id="videoLabel">WAITING</span></div>
 <div class="controls" id="hostControls"><button class="btn primary" id="createBtn">Create room & get link</button><button class="btn danger hidden" id="endBtn">End room</button></div>
 <div class="status" id="status">Your camera is not needed. Create a room, then send the invitation link.</div><div id="hostAnalysis" class="card hidden"><div class="section-title">Guest face analysis</div><div class="score-box"><div class="score-value" id="hostScore">—</div><div class="score-label">Overall Harmony Score</div></div><div id="hostRatios"></div></div>
-<div class="divider"></div><div class="section-title">Automatically saved latest photo</div>
+<div id="savedPhotoSection"><div class="divider"></div><div class="section-title">Automatically saved latest photo</div>
 <p class="muted">While your guest has knowingly enabled camera sharing, the latest frame is saved automatically about every 10 seconds. It remains available after the live session ends.</p>
 <img id="savedPhoto" class="photo" alt="Automatically saved latest guest photo">
-<div class="controls"><button class="btn" id="refreshPhotoBtn">Load saved photo</button></div>
+<div class="controls"><button class="btn" id="refreshPhotoBtn">Load saved photo</button></div></div>
 </section>
 <aside class="panel">
 <div id="hostPanel">
@@ -100,7 +100,7 @@ function send(event,payload={}){if(channel)channel.send({type:'broadcast',event,
 async function subscribeRoom(){
  channel=sb.channel('camera-room-'+roomId,{config:{broadcast:{self:false}}});
  channel.on('broadcast',{event:'offer'},async({payload})=>{if(isGuest)return;try{await ensurePeer();await pc.setRemoteDescription(payload.description);for(const c of pendingCandidates)await pc.addIceCandidate(c);pendingCandidates=[];const answer=await pc.createAnswer();await pc.setLocalDescription(answer);send('answer',{description:pc.localDescription});status('Guest camera connected. Latest photo will save automatically.','good');}catch(e){status('Could not connect to guest: '+e.message,'warn');}});
- channel.on('broadcast',{event:'answer'},async({payload})=>{if(!isGuest||!pc)return;try{await pc.setRemoteDescription(payload.description);for(const c of pendingCandidates)await pc.addIceCandidate(c);pendingCandidates=[];guestStatus('Your camera is live. The host can see you; the latest photo is being saved automatically.','good');}catch(e){guestStatus('Connection error: '+e.message,'warn');}});
+ channel.on('broadcast',{event:'answer'},async({payload})=>{if(!isGuest||!pc)return;try{await pc.setRemoteDescription(payload.description);for(const c of pendingCandidates)await pc.addIceCandidate(c);pendingCandidates=[];guestStatus('Your camera is live. The host can see you.','good');}catch(e){guestStatus('Connection error: '+e.message,'warn');}});
  channel.on('broadcast',{event:'ice'},async({payload})=>{if(payload.from===(isGuest?'guest':'host')||!pc||!payload.candidate)return;try{const c=new RTCIceCandidate(payload.candidate);if(pc.remoteDescription)await pc.addIceCandidate(c);else pendingCandidates.push(c);}catch(e){console.warn('ICE candidate skipped',e);}});
  channel.on('broadcast',{event:'room-ended'},()=>{stopPeer();if(isGuest){guestStatus('The host ended this room. Your camera has stopped.','warn');stopGuestCamera();}});
  channel.on('broadcast',{event:'guest-stopped'},()=>{if(!isGuest){stopPeer();stopAutoSave();$('placeholder').classList.remove('hidden');$('remoteVideo').classList.add('hidden');$('videoLabel').textContent='GUEST LEFT';$('hostAnalysis').classList.add('hidden');status('Guest stopped sharing. The last saved photo is still available.','warn');}});
@@ -195,6 +195,8 @@ $('stopSharingBtn').onclick=()=>{stopGuestCamera();guestStatus('You stopped shar
 $('refreshPhotoBtn').onclick=loadSavedPhoto;
 if(isGuest){
  $('hostPanel').classList.add('hidden');$('guestPanel').classList.remove('hidden');$('hostControls').classList.add('hidden');$('hostAnalysis').classList.add('hidden');
+ const sps=$('savedPhotoSection'); if(sps) sps.classList.add('hidden');
+ const st=$('status'); if(st) st.classList.add('hidden');
  $('videoHeading').textContent='Your camera';
  for(const el of $('guestPanel').parentElement.children){if(el.id!=='guestPanel')el.classList.add('hidden');}
  guestStatus('Camera is off. Tap the button when you are ready to share.');
