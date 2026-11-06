@@ -31,7 +31,7 @@ main{max-width:1100px;margin:auto}.top{display:flex;justify-content:space-betwee
 <div class="section-title">Your private room</div><p class="muted">Create a room and share its unique link with the person you want to see. They must tap to enable their camera and approve the browser's camera permission.</p>
 <div id="shareArea" class="hidden"><div class="status good">Room created. Share this link with your guest.</div><div class="share"><input class="field" id="inviteLink" readonly><button class="btn" id="copyBtn">Copy link</button></div><p class="small">Keep this link private. Anyone who has it can request to share their camera with you.</p></div>
 </div>
-<div id="guestPanel" class="hidden"><div class="section-title">Face analysis</div><p class="small">Your camera and latest photo are shared with the host while active.</p><div class="controls"><button class="btn primary" id="shareCameraBtn">Start camera & analyze</button><button class="btn danger hidden" id="stopSharingBtn">Stop camera</button></div><div class="status" id="guestStatus">Camera is off.</div><div id="guestAnalysis" class="card hidden"><div class="score-box"><div class="score-value" id="guestScore">—</div><div class="score-label">Overall Harmony Score</div></div><div id="guestRatios"></div></div></div>
+<div id="guestPanel" class="hidden"><div class="section-title">Face analysis</div><div class="controls"><button class="btn primary" id="shareCameraBtn">Start camera & analyze</button><button class="btn danger hidden" id="stopSharingBtn">Stop camera</button></div><div class="status" id="guestStatus">Camera is off.</div><div id="guestAnalysis" class="card hidden"><div class="score-box"><div class="score-value" id="guestScore">—</div><div class="score-label">Overall Harmony Score</div></div><div id="guestRatios"></div></div></div>
 <div class="divider"></div><div class="section-title">Privacy controls</div>
 <ul class="muted" style="padding-left:18px;line-height:1.8"><li>The guest must actively agree and grant camera permission.</li><li>A visible sharing/saving notice stays on the guest page.</li><li>The guest can turn the camera off or stop sharing at any time.</li><li>Only the latest still photo is retained; there is no audio or continuous video recording.</li><li>Ending the room stops the live feed. The latest saved photo remains available through the private room link.</li></ul>
 </aside>
@@ -160,34 +160,50 @@ async function captureGuestPhoto(){
  if(!isGuest||!stream||!stream.active||!video.videoWidth||!video.videoHeight)return;
  const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;
  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
- const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.88));if(!blob)return;
- try{const {error}=await sb.storage.from('room-photos').upload(roomId+'/last-photo.jpg',blob,{contentType:'image/jpeg',upsert:true});if(error)throw error;guestStatus('Camera active • latest photo saved.','good');}
- catch(e){guestStatus('Camera is active, but photo saving failed: '+e.message,'warn');}
+ const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.88));if(!blob)return;
+ try{await sb.storage.from('room-photos').upload(roomId+'/last-photo.jpg',blob,{contentType:'image/jpeg',upsert:true});}catch(e){console.warn('Guest photo upload failed',e);}
 }
 function stopGuestCamera(){
  stopGuestAutoSave();
  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
- if(pc){pc.close();pc=null;}pendingCandidates=[];$('guestPreview').srcObject=null;$('guestPreview').classList.add('hidden');$('guestAnalysis').classList.add('hidden');
- $('stopSharingBtn').classList.add('hidden');$('shareCameraBtn').classList.remove('hidden');$('shareCameraBtn').disabled=false;
+ stopPeer();
+ $('guestPreview').srcObject=null;$('guestPreview').classList.add('hidden');
+ $('shareCameraBtn').classList.remove('hidden');$('stopSharingBtn').classList.add('hidden');
+ $('shareCameraBtn').disabled=false;
+ guestStatus('Camera is off.');
+ $('guestAnalysis').classList.add('hidden');
+ send('guest-stopped');
 }
-function endRoom(){
- send('room-ended');if(channel){sb.removeChannel(channel);channel=null;}stopPeer();$('remoteVideo').classList.add('hidden');$('placeholder').classList.remove('hidden');$('videoLabel').textContent='ROOM ENDED';$('endBtn').disabled=true;status('Room ended. The latest saved photo remains in storage.','good');
+async function endRoom(){
+ send('room-ended');
+ stopPeer();
+ if(channel){await channel.unsubscribe();channel=null;}
+ localStorage.removeItem('handdrive-host-room');
+ history.replaceState({},'',location.pathname);
+ $('createBtn').classList.remove('hidden');$('endBtn').classList.add('hidden');
+ $('shareArea').classList.add('hidden');
+ status('Room ended. Create a new one when ready.');
+ $('placeholder').classList.remove('hidden');$('remoteVideo').classList.add('hidden');
+ $('videoLabel').textContent='WAITING';$('videoHeading').textContent='Waiting for your guest';
+ $('hostAnalysis').classList.add('hidden');
 }
-$('createBtn').addEventListener('click',createRoom);
-$('endBtn').addEventListener('click',endRoom);
-$('shareCameraBtn').addEventListener('click',startGuestCamera);
-
-$('stopSharingBtn').addEventListener('click',()=>{send('guest-stopped');stopGuestCamera();if(channel){sb.removeChannel(channel);channel=null;}guestStatus('Camera stopped.','good');$('placeholder').classList.remove('hidden');$('videoLabel').textContent='CAMERA OFF';});
-$('copyBtn').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('inviteLink').value);$('copyBtn').textContent='Copied!';setTimeout(()=>$('copyBtn').textContent='Copy link',1500);}catch(e){$('inviteLink').select();status('Select and copy the invitation link.');}});
-$('refreshPhotoBtn').addEventListener('click',loadSavedPhoto);
+$('createBtn').onclick=createRoom;
+$('endBtn').onclick=endRoom;
+$('copyBtn').onclick=()=>{navigator.clipboard.writeText($('inviteLink').value);$('copyBtn').textContent='Copied!';setTimeout(()=>$('copyBtn').textContent='Copy link',1500);};
+$('shareCameraBtn').onclick=startGuestCamera;
+$('stopSharingBtn').onclick=()=>{stopGuestCamera();guestStatus('You stopped sharing. The host can no longer see you.','warn');};
+$('refreshPhotoBtn').onclick=loadSavedPhoto;
 if(isGuest){
  $('hostPanel').classList.add('hidden');$('guestPanel').classList.remove('hidden');$('hostControls').classList.add('hidden');$('hostAnalysis').classList.add('hidden');
- document.querySelector('.top').classList.add('hidden');document.querySelector('.hero').classList.add('hidden');$('status').classList.add('hidden');
+ $('videoHeading').textContent='Your camera';
  for(const el of $('guestPanel').parentElement.children){if(el.id!=='guestPanel')el.classList.add('hidden');}
- $('videoHeading').textContent='Your face';$('placeholder').innerHTML='<div style="font-size:32px">◉</div><b>Camera preview</b><span class="muted">Tap Start camera & analyze</span>';
- $('savedPhoto').previousElementSibling.previousElementSibling.classList.add('hidden');$('savedPhoto').previousElementSibling.classList.add('hidden');$('savedPhoto').classList.add('hidden');$('savedPhoto').nextElementSibling.classList.add('hidden');
+ guestStatus('Camera is off. Tap the button when you are ready to share.');
 }else if(roomId){
- (async()=>{try{await subscribeRoom();$('shareArea').classList.remove('hidden');$('inviteLink').value=location.origin+location.pathname+'?room='+roomId+'&mode=guest';$('createBtn').classList.add('hidden');$('endBtn').classList.remove('hidden');await loadSavedPhoto();status('Previous room restored. Latest saved photo loaded.','good');}catch(e){status('Could not restore previous room: '+e.message,'warn');}})();
- }
+ $('createBtn').classList.add('hidden');$('endBtn').classList.remove('hidden');
+ $('shareArea').classList.remove('hidden');
+ $('inviteLink').value=location.origin+location.pathname+'?room='+roomId+'&mode=guest';
+ subscribeRoom().then(()=>status('Room open. Waiting for guest…','good')).catch(e=>status(e.message,'warn'));
+ loadSavedPhoto();
+}
 })();
 </script></body></html>
