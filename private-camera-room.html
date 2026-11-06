@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080b14">
+<title>Private Camera Room</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{color-scheme:dark;--bg:#080b14;--panel:#111827;--line:#273247;--muted:#9aa8bd;--text:#eef4ff;--accent:#8b7cff;--cyan:#5de1e6;--danger:#ff647c}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 20% 0%,#22204b 0,transparent 38%),radial-gradient(ellipse at 90% 80%,#10313c 0,transparent 35%),var(--bg);font-family:Inter,system-ui,Segoe UI,sans-serif;color:var(--text);padding:28px 16px}
+main{max-width:1100px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:26px}.brand{display:flex;align-items:center;gap:12px;font-weight:750;letter-spacing:.2px}.logo{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--cyan));color:#08111c;font-size:21px}.pill{font-size:12px;color:#b8c6d9;border:1px solid var(--line);border-radius:30px;padding:8px 12px}.hero{margin:20px 0 24px}.eyebrow{color:var(--cyan);font-size:11px;letter-spacing:2px;font-weight:800}.hero h1{font-size:clamp(30px,5vw,48px);letter-spacing:-1.7px;margin:9px 0}.hero p{color:var(--muted);line-height:1.6;max-width:680px;margin:0}.grid{display:grid;grid-template-columns:1.5fr .8fr;gap:18px}.panel{background:linear-gradient(145deg,rgba(20,29,46,.96),rgba(13,19,32,.96));border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 20px 65px #0004}.video-wrap{position:relative;background:#03060b;border:1px solid #263349;border-radius:16px;overflow:hidden;aspect-ratio:16/10;display:grid;place-items:center}.video-wrap video{width:100%;height:100%;object-fit:cover}.placeholder{position:absolute;text-align:center;color:#718097;padding:20px}.placeholder b{display:block;color:#c8d4e6;margin:10px 0 5px}.video-label{position:absolute;left:12px;top:12px;background:#060a12bb;border:1px solid #ffffff20;padding:7px 10px;border-radius:30px;font-size:11px}.controls{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}.btn{border:1px solid #34415a;background:#1b2639;color:var(--text);padding:11px 15px;border-radius:12px;font-weight:650;cursor:pointer;transition:.2s}.btn:hover{transform:translateY(-1px);border-color:var(--accent)}.btn.primary{background:linear-gradient(110deg,#7768ef,#4c9eb5);border:0;color:white}.btn.danger{background:#451d2a;border-color:#743344}.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}.section-title{font-size:14px;font-weight:750;margin:0 0 12px}.muted{color:var(--muted);font-size:13px;line-height:1.55}.status{padding:11px 12px;background:#0b1321;border:1px solid var(--line);border-radius:12px;color:#c3d1e4;font-size:13px;margin:12px 0}.status.good{border-color:#23665d;color:#9ff1d9}.status.warn{border-color:#725a2c;color:#f4d28a}.field{width:100%;padding:12px 13px;background:#080f1c;border:1px solid #33415a;border-radius:11px;color:white;outline:none;margin:8px 0}.field:focus{border-color:var(--accent)}.share{display:flex;gap:8px}.share .field{min-width:0}.photo{width:100%;border-radius:13px;border:1px solid var(--line);margin-top:10px;display:none}.divider{height:1px;background:var(--line);margin:18px 0}.hidden{display:none!important}.small{font-size:11px;color:#8292aa;line-height:1.5;margin-top:12px}.request{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#172438;padding:12px;border-radius:12px;margin-top:10px}.footer{text-align:center;color:#74849b;font-size:11px;margin:22px 0 5px}
+@media(max-width:800px){body{padding:18px 12px}.grid{grid-template-columns:1fr}.top{align-items:flex-start}.panel{padding:14px}.video-wrap{aspect-ratio:4/3}}
+</style>
+</head>
+<body><main>
+<header class="top"><div class="brand"><div class="logo">◉</div><span>Private Camera Room</span></div><span class="pill">🔒 Consent-based sharing</span></header>
+<section class="hero"><div class="eyebrow">PRIVATE • LIVE • CONTROLLED BY YOU</div><h1>Your camera. Your permission.</h1><p>Create a private room and invite one person to view your live camera. They cannot see anything until you approve their request. Save a photo that remains available after the live session ends.</p></section>
+<div class="grid">
+<section class="panel">
+<div class="section-title" id="videoHeading">Camera preview</div>
+<div class="video-wrap"><video id="localVideo" autoplay muted playsinline class="hidden"></video><video id="remoteVideo" autoplay playsinline class="hidden"></video><div class="placeholder" id="placeholder"><div style="font-size:32px">◉</div><b>Camera is not active</b><span class="muted">Start or join a room to continue</span></div><span class="video-label" id="videoLabel">OFFLINE</span></div>
+<div class="controls" id="hostControls"><button class="btn primary" id="createBtn">Start camera & create room</button></div>
+<div class="controls hidden" id="liveControls"><button class="btn" id="cameraBtn">Turn camera off</button><button class="btn" id="captureBtn">▣ Save last photo</button><button class="btn danger" id="endBtn">End room</button></div>
+<div class="status" id="status">Ready. Your camera will start only after you press the button.</div>
+<div id="requestBox" class="request hidden"><span id="requestText">A guest wants to join.</span><button class="btn primary" id="acceptBtn">Allow access</button></div>
+<div class="divider"></div>
+<div class="section-title">Last saved photo</div>
+<p class="muted">The latest photo saved by the host stays in this room's private storage. It can be viewed again using the same invitation link.</p>
+<img id="savedPhoto" class="photo" alt="Last saved room photo">
+<div class="controls"><button class="btn" id="refreshPhotoBtn">Load saved photo</button></div>
+</section>
+<aside class="panel">
+<div id="hostPanel">
+<div class="section-title">Create your private room</div><p class="muted">Start your camera, then share the invitation link. A guest must request access, and you decide whether to accept.</p>
+<div id="shareArea" class="hidden"><div class="status good">Your room is ready. Share this link with one trusted person.</div><div class="share"><input class="field" id="inviteLink" readonly><button class="btn" id="copyBtn">Copy</button></div><p class="small">Treat this link like a password. Anyone who has it can request to join. Only one guest is supported at a time.</p></div>
+<div class="divider"></div>
+<div class="section-title">Room controls</div><p class="muted">You can switch your camera off or end the room at any time. The guest will immediately lose the live feed.</p>
+</div>
+<div id="guestPanel" class="hidden">
+<div class="section-title">Join a private room</div><p class="muted">You are opening an invitation. Send a request to the host and wait for their approval.</p><button class="btn primary" id="requestBtn">Request camera access</button><div class="status" id="guestStatus">Not connected yet.</div>
+</div>
+<div class="divider"></div><div class="section-title">Privacy notes</div>
+<ul class="muted" style="padding-left:18px;line-height:1.8"><li>Camera access requires browser permission.</li><li>The host must approve each live guest.</li><li>No hidden recording or background capture.</li><li>Only a photo deliberately saved by the host is retained.</li><li>Ending the room stops live sharing; it does not erase the saved photo.</li></ul>
+</aside>
+</div><div class="footer">Private Camera Room • Live video uses peer-to-peer WebRTC</div>
+</main>
+<script>
+(() => {
+const SUPABASE_URL = 'https://kjoqtwdzlpwqnafetbfj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_rmS8JkwJWnKwtrpwYLIAEg_K4dRcO3b';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const roomFromUrl = params.get('room');
+const isGuest = !!roomFromUrl && params.get('mode') === 'guest';
+const randomRoom = () => Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
+let roomId = roomFromUrl || null, channel = null, stream = null, pc = null, guestPending = false, savedObjectUrl = null, pendingCandidates = [];
+const rtcConfig = {iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+const status = (msg,kind='') => { $('status').textContent=msg; $('status').className='status '+kind; };
+const guestStatus = (msg,kind='') => { $('guestStatus').textContent=msg; $('guestStatus').className='status '+kind; };
+function showVideo(which){$('placeholder').classList.add('hidden');$('localVideo').classList.toggle('hidden',which!=='local');$('remoteVideo').classList.toggle('hidden',which!=='remote');$('videoLabel').textContent=which==='local'?'YOUR CAMERA':'LIVE FROM HOST';}
+function channelSend(event,payload={}){if(channel) channel.send({type:'broadcast',event,payload:{...payload,from:isGuest?'guest':'host'}});}
+async function subscribeRoom(){
+ channel=sb.channel('camera-room-'+roomId,{config:{broadcast:{self:false}}});
+ channel.on('broadcast',{event:'join-request'},()=>{if(!isGuest){guestPending=true;$('requestBox').classList.remove('hidden');status('Someone is requesting to view your camera. Approve only if you trust them.','warn');}});
+ channel.on('broadcast',{event:'offer'},async({payload})=>{if(!isGuest)return;try{await ensurePeer();await pc.setRemoteDescription(payload.description);for(const c of pendingCandidates)await pc.addIceCandidate(c);pendingCandidates=[];const answer=await pc.createAnswer();await pc.setLocalDescription(answer);channelSend('answer',{description:pc.localDescription});guestStatus('Host approved your request. Connecting…','good');}catch(e){guestStatus('Could not connect: '+e.message,'warn');}});
+ channel.on('broadcast',{event:'answer'},async({payload})=>{if(isGuest||!pc)return;try{await pc.setRemoteDescription(payload.description);for(const c of pendingCandidates)await pc.addIceCandidate(c);pendingCandidates=[];status('Guest accepted. Establishing live video…','good');}catch(e){status('Connection error: '+e.message,'warn');}});
+ channel.on('broadcast',{event:'ice'},async({payload})=>{if(payload.from===(isGuest?'guest':'host')||!pc||!payload.candidate)return;try{const c=new RTCIceCandidate(payload.candidate);if(pc.remoteDescription)await pc.addIceCandidate(c);else pendingCandidates.push(c);}catch(e){console.warn('ICE candidate skipped',e);}});
+ channel.on('broadcast',{event:'room-ended'},()=>{stopPeer();if(isGuest){guestStatus('The host ended the live room. You can still view the saved photo.','warn');$('videoLabel').textContent='ROOM ENDED';}});
+ channel.on('broadcast',{event:'camera-state'},({payload})=>{if(isGuest)guestStatus(payload.enabled?'Host camera is on.':'Host camera is off.',payload.enabled?'good':'warn');});
+ await new Promise((resolve,reject)=>{
+  const timeout=setTimeout(()=>reject(new Error('Room connection timed out.')),12000);
+  channel.subscribe(state=>{if(state==='SUBSCRIBED'){clearTimeout(timeout);resolve();}else if(state==='CHANNEL_ERROR'||state==='TIMED_OUT'||state==='CLOSED'){clearTimeout(timeout);reject(new Error('Could not connect to the room service: '+state));}});
+ });
+}
+async function ensurePeer(){
+ if(pc){pc.close();pc=null;} pendingCandidates=[];
+ pc=new RTCPeerConnection(rtcConfig);
+ pc.onicecandidate=e=>{if(e.candidate)channelSend('ice',{candidate:e.candidate.toJSON()});};
+ pc.ontrack=e=>{const remote=e.streams[0];$('remoteVideo').srcObject=remote;showVideo('remote');guestStatus('Live camera connected.','good');$('videoHeading').textContent='Host live camera';};
+ pc.onconnectionstatechange=()=>{if(pc&&['failed','disconnected'].includes(pc.connectionState)){if(isGuest)guestStatus('Connection interrupted. Ask the host to reconnect.','warn');}};
+ if(!isGuest&&stream)stream.getTracks().forEach(t=>pc.addTrack(t,stream));
+ return pc;
+}
+async function loadSavedPhoto(){
+ if(!roomId)return;
+ try{const {data,error}=await sb.storage.from('room-photos').download(roomId+'/last-photo.jpg');if(error)throw error;if(savedObjectUrl)URL.revokeObjectURL(savedObjectUrl);savedObjectUrl=URL.createObjectURL(data);$('savedPhoto').src=savedObjectUrl;$('savedPhoto').style.display='block';}
+ catch(e){$('savedPhoto').style.display='none';if(!isGuest)status('No saved photo yet. Capture one during your session.');}
+}
+async function startHost(){
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+  roomId=randomRoom();await subscribeRoom();
+  $('localVideo').srcObject=stream;showVideo('local');$('videoHeading').textContent='Your camera preview';
+  $('hostControls').classList.add('hidden');$('liveControls').classList.remove('hidden');$('shareArea').classList.remove('hidden');
+  $('inviteLink').value=location.origin+location.pathname+'?room='+roomId+'&mode=guest';
+  status('Camera is live locally. Waiting for a guest to request access.','good');
+ }catch(e){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}status('Could not start: '+e.message,'warn');}
+}
+async function requestAccess(){
+ try{await subscribeRoom();channelSend('join-request');$('requestBtn').disabled=true;guestStatus('Request sent. Wait for the host to approve access.','warn');}
+ catch(e){guestStatus('Could not request access: '+e.message,'warn');}
+}
+async function acceptGuest(){
+ if(!guestPending||!stream)return;
+ try{$('requestBox').classList.add('hidden');await ensurePeer();const offer=await pc.createOffer();await pc.setLocalDescription(offer);channelSend('offer',{description:pc.localDescription});status('Access approved. Connecting to guest…','good');}
+ catch(e){status('Could not start connection: '+e.message,'warn');}
+}
+async function capturePhoto(){
+ if(!stream||!stream.active){status('Turn your camera on before saving a photo.','warn');return;}
+ const video=$('localVideo');if(!video.videoWidth){status('Camera is still starting. Try again in a moment.','warn');return;}
+ const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d').drawImage(video,0,0);
+ const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.9));if(!blob){status('Could not capture this frame.','warn');return;}
+ try{const {error}=await sb.storage.from('room-photos').upload(roomId+'/last-photo.jpg',blob,{contentType:'image/jpeg',upsert:true});if(error)throw error;await loadSavedPhoto();status('Photo saved securely. It will remain available after the live room ends.','good');}
+ catch(e){status('Photo could not be saved: '+e.message,'warn');}
+}
+function stopPeer(){if(pc){pc.ontrack=null;pc.close();pc=null;}pendingCandidates=[];$('remoteVideo').srcObject=null;if(isGuest){$('remoteVideo').classList.add('hidden');$('placeholder').classList.remove('hidden');}}
+function endRoom(){channelSend('room-ended');if(channel){sb.removeChannel(channel);channel=null;}stopPeer();if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}$('localVideo').srcObject=null;$('liveControls').classList.add('hidden');$('hostControls').classList.remove('hidden');$('requestBox').classList.add('hidden');$('placeholder').classList.remove('hidden');$('localVideo').classList.add('hidden');$('videoLabel').textContent='OFFLINE';status('Room ended. Your saved photo is still stored.','good');}
+$('createBtn').addEventListener('click',startHost);
+$('requestBtn').addEventListener('click',requestAccess);
+$('acceptBtn').addEventListener('click',acceptGuest);
+$('captureBtn').addEventListener('click',capturePhoto);
+$('endBtn').addEventListener('click',endRoom);
+$('cameraBtn').addEventListener('click',()=>{if(!stream)return;const t=stream.getVideoTracks()[0];t.enabled=!t.enabled;$('cameraBtn').textContent=t.enabled?'Turn camera off':'Turn camera on';channelSend('camera-state',{enabled:t.enabled});status(t.enabled?'Camera is on.':'Camera is off.','good');});
+$('copyBtn').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('inviteLink').value);$('copyBtn').textContent='Copied!';setTimeout(()=>$('copyBtn').textContent='Copy',1600);}catch(e){$('inviteLink').select();status('Select and copy the invitation link.');}});
+$('refreshPhotoBtn').addEventListener('click',loadSavedPhoto);
+if(isGuest){$('hostPanel').classList.add('hidden');$('guestPanel').classList.remove('hidden');$('hostControls').classList.add('hidden');$('videoHeading').textContent='Waiting for host';$('placeholder').innerHTML='<div style="font-size:32px">🔒</div><b>Private room invitation</b><span class="muted">Request access to view the camera</span>';loadSavedPhoto();}
+})();
+</script></body></html>
