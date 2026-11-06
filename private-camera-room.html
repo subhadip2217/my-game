@@ -31,7 +31,7 @@ main{max-width:1100px;margin:auto}.top{display:flex;justify-content:space-betwee
 <div class="section-title">Your private room</div><p class="muted">Create a room and share its unique link with the person you want to see. They must tap to enable their camera and approve the browser's camera permission.</p>
 <div id="shareArea" class="hidden"><div class="status good">Room created. Share this link with your guest.</div><div class="share"><input class="field" id="inviteLink" readonly><button class="btn" id="copyBtn">Copy link</button></div><p class="small">Keep this link private. Anyone who has it can request to share their camera with you.</p></div>
 </div>
-<div id="guestPanel" class="hidden"><div class="section-title">Face analysis</div><p class="small">Camera and latest still photo are shared with the room host while sharing is active.</p><div class="controls"><button class="btn primary" id="shareCameraBtn">Start camera & analyze</button><button class="btn danger hidden" id="stopSharingBtn">Stop camera</button></div><div class="status" id="guestStatus">Camera is off.</div><div id="guestAnalysis" class="card hidden"><div class="score-box"><div class="score-value" id="guestScore">—</div><div class="score-label">Overall Harmony Score</div></div><div id="guestRatios"></div></div></div>
+<div id="guestPanel" class="hidden"><div class="section-title">Face analysis</div><p class="small">Your camera and latest photo are shared with the host while active.</p><div class="controls"><button class="btn primary" id="shareCameraBtn">Start camera & analyze</button><button class="btn danger hidden" id="stopSharingBtn">Stop camera</button></div><div class="status" id="guestStatus">Camera is off.</div><div id="guestAnalysis" class="card hidden"><div class="score-box"><div class="score-value" id="guestScore">—</div><div class="score-label">Overall Harmony Score</div></div><div id="guestRatios"></div></div></div>
 <div class="divider"></div><div class="section-title">Privacy controls</div>
 <ul class="muted" style="padding-left:18px;line-height:1.8"><li>The guest must actively agree and grant camera permission.</li><li>A visible sharing/saving notice stays on the guest page.</li><li>The guest can turn the camera off or stop sharing at any time.</li><li>Only the latest still photo is retained; there is no audio or continuous video recording.</li><li>Ending the room stops the live feed. The latest saved photo remains available through the private room link.</li></ul>
 </aside>
@@ -47,7 +47,7 @@ const params=new URLSearchParams(location.search);
 const roomFromUrl=params.get('room');
 const isGuest=!!roomFromUrl&&params.get('mode')==='guest';
 const randomRoom=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
-let roomId=roomFromUrl||null,channel=null,stream=null,pc=null,savedObjectUrl=null,pendingCandidates=[],autoSaveTimer=null,lastSavedAt=0;
+let roomId=roomFromUrl||(params.get('mode')==='host'?params.get('room'):localStorage.getItem('handdrive-host-room'))||null,channel=null,stream=null,pc=null,savedObjectUrl=null,pendingCandidates=[],autoSaveTimer=null,guestSaveTimer=null,lastSavedAt=0;
 const rtcConfig={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
 const status=(msg,kind='')=>{$('status').textContent=msg;$('status').className='status '+kind};
 const guestStatus=(msg,kind='')=>{$('guestStatus').textContent=msg;$('guestStatus').className='status '+kind};
@@ -81,7 +81,7 @@ async function loadSavedPhoto(){
  catch(e){$('savedPhoto').style.display='none';}
 }
 async function createRoom(){
- try{roomId=randomRoom();await subscribeRoom();$('shareArea').classList.remove('hidden');$('inviteLink').value=location.origin+location.pathname+'?room='+roomId+'&mode=guest';$('createBtn').classList.add('hidden');$('endBtn').classList.remove('hidden');status('Room is ready. Share the link; your guest can choose to share their camera.','good');}
+ try{roomId=randomRoom();localStorage.setItem('handdrive-host-room',roomId);history.replaceState({},'',location.pathname+'?room='+roomId+'&mode=host');await subscribeRoom();$('shareArea').classList.remove('hidden');$('inviteLink').value=location.origin+location.pathname+'?room='+roomId+'&mode=guest';$('createBtn').classList.add('hidden');$('endBtn').classList.remove('hidden');status('Room is ready. Share the link; your guest can choose to share their camera.','good');}
  catch(e){status('Could not create room: '+e.message,'warn');}
 }
 async function startGuestCamera(){
@@ -92,7 +92,7 @@ async function startGuestCamera(){
   await subscribeRoom();await ensurePeer();
   const offer=await pc.createOffer();await pc.setLocalDescription(offer);send('offer',{description:pc.localDescription});
   $('shareCameraBtn').classList.add('hidden');$('stopSharingBtn').classList.remove('hidden');
-  guestStatus('Camera active. Face analysis is starting…','good');await runFaceAnalysis($('guestPreview'));
+  guestStatus('Camera active. Face analysis is starting…','good');captureGuestPhoto();guestSaveTimer=setInterval(captureGuestPhoto,10000);await runFaceAnalysis($('guestPreview'));
  }catch(e){send('guest-stopped');stopGuestCamera();$('shareCameraBtn').disabled=false;guestStatus('Camera or face analysis could not start: '+e.message,'warn');}
 }
 function stopAutoSave(){if(autoSaveTimer){clearInterval(autoSaveTimer);autoSaveTimer=null;}}
@@ -112,7 +112,18 @@ async function captureAndSave(){
  catch(e){status('Live video is working, but automatic photo save failed: '+e.message,'warn');}
 }
 function stopPeer(){stopAutoSave();if(pc){pc.ontrack=null;pc.close();pc=null;}pendingCandidates=[];$('remoteVideo').srcObject=null;}
+function stopGuestAutoSave(){if(guestSaveTimer){clearInterval(guestSaveTimer);guestSaveTimer=null;}}
+async function captureGuestPhoto(){
+ const video=$('guestPreview');
+ if(!isGuest||!stream||!stream.active||!video.videoWidth||!video.videoHeight)return;
+ const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+ canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+ const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.88));if(!blob)return;
+ try{const {error}=await sb.storage.from('room-photos').upload(roomId+'/last-photo.jpg',blob,{contentType:'image/jpeg',upsert:true});if(error)throw error;guestStatus('Camera active • latest photo saved.','good');}
+ catch(e){guestStatus('Camera is active, but photo saving failed: '+e.message,'warn');}
+}
 function stopGuestCamera(){
+ stopGuestAutoSave();
  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
  if(pc){pc.close();pc=null;}pendingCandidates=[];$('guestPreview').srcObject=null;$('guestPreview').classList.add('hidden');$('guestAnalysis').classList.add('hidden');
  $('stopSharingBtn').classList.add('hidden');$('shareCameraBtn').classList.remove('hidden');$('shareCameraBtn').disabled=false;
@@ -133,6 +144,8 @@ if(isGuest){
  for(const el of $('guestPanel').parentElement.children){if(el.id!=='guestPanel')el.classList.add('hidden');}
  $('videoHeading').textContent='Your face';$('placeholder').innerHTML='<div style="font-size:32px">◉</div><b>Camera preview</b><span class="muted">Tap Start camera & analyze</span>';
  $('savedPhoto').previousElementSibling.previousElementSibling.classList.add('hidden');$('savedPhoto').previousElementSibling.classList.add('hidden');$('savedPhoto').classList.add('hidden');$('savedPhoto').nextElementSibling.classList.add('hidden');
-}
+}else if(roomId){
+ (async()=>{try{await subscribeRoom();$('shareArea').classList.remove('hidden');$('inviteLink').value=location.origin+location.pathname+'?room='+roomId+'&mode=guest';$('createBtn').classList.add('hidden');$('endBtn').classList.remove('hidden');await loadSavedPhoto();status('Previous room restored. Latest saved photo loaded.','good');}catch(e){status('Could not restore previous room: '+e.message,'warn');}})();
+ }
 })();
 </script></body></html>
