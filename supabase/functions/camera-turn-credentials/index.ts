@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
     const iceServers = payload.iceServers.map((server: any) => ({
       ...server,
       urls: Array.isArray(server.urls)
-        ? server.urls.filter((url: string) => !/:53(?:\\?|$)/.test(url))
+        ? server.urls.filter((url: string) => !url.includes(':53'))/.test(url))
         : server.urls,
     }));
     return Response.json({ iceServers }, {
