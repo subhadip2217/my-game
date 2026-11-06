@@ -129,8 +129,10 @@ $('copyBtn').addEventListener('click',async()=>{try{await navigator.clipboard.wr
 $('refreshPhotoBtn').addEventListener('click',loadSavedPhoto);
 if(isGuest){
  $('hostPanel').classList.add('hidden');$('guestPanel').classList.remove('hidden');$('hostControls').classList.add('hidden');$('hostAnalysis').classList.add('hidden');
- $('videoHeading').textContent='Your face camera';$('placeholder').innerHTML='<div style="font-size:32px">◉</div><b>Camera preview</b><span class="muted">Tap Start camera & analyze</span>';
- $('refreshPhotoBtn').parentElement.classList.add('hidden');$('savedPhoto').classList.add('hidden');
+ document.querySelector('.top').classList.add('hidden');document.querySelector('.hero').classList.add('hidden');$('status').classList.add('hidden');
+ for(const el of $('guestPanel').parentElement.children){if(el.id!=='guestPanel')el.classList.add('hidden');}
+ $('videoHeading').textContent='Your face';$('placeholder').innerHTML='<div style="font-size:32px">◉</div><b>Camera preview</b><span class="muted">Tap Start camera & analyze</span>';
+ $('savedPhoto').previousElementSibling.previousElementSibling.classList.add('hidden');$('savedPhoto').previousElementSibling.classList.add('hidden');$('savedPhoto').classList.add('hidden');$('savedPhoto').nextElementSibling.classList.add('hidden');
 }
 })();
 </script></body></html>
