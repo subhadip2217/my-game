@@ -53,7 +53,49 @@ const status=(msg,kind='')=>{$('status').textContent=msg;$('status').className='
 const guestStatus=(msg,kind='')=>{$('guestStatus').textContent=msg;$('guestStatus').className='status '+kind};
 function showRemote(){ $('placeholder').classList.add('hidden');$('remoteVideo').classList.remove('hidden');$('videoLabel').textContent='LIVE GUEST CAMERA';$('videoHeading').textContent='Guest live camera'; }
 function renderAnalysis(result,where){const score=$(where==='host'?'hostScore':'guestScore'),list=$(where==='host'?'hostRatios':'guestRatios'),card=$(where==='host'?'hostAnalysis':'guestAnalysis');score.textContent=result.overall+'%';score.style.color=result.overall>=88?'#34d399':result.overall>=72?'#fbbf24':'#f87171';list.innerHTML=result.rows.map(r=>'<div class="ratio-item"><strong>'+r.name+'</strong><div style="text-align:right">'+r.actual+' <span class="badge '+(r.score>=90?'good':r.score>=75?'ok':'bad')+'">'+r.score+'%</span><div class="small">Ideal: '+r.ideal+'</div></div></div>').join('');card.classList.remove('hidden');}
-async function runFaceAnalysis(video){const vision=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14');const files=await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');const detector=await vision.FaceLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',delegate:'GPU'},runningMode:'VIDEO',numFaces:1});const L={forehead:10,chin:152,leftCheek:234,rightCheek:454,noseBase:2,leftMouth:61,rightMouth:291,leftEyeInner:133,rightEyeInner:362,leftEyeOuter:33,rightEyeOuter:263,leftBrow:107};const dist=(a,b)=>Math.hypot((a.x-b.x)*video.videoWidth,(a.y-b.y)*video.videoHeight);const close=(a,ideal)=>Math.round(Math.min(a,ideal)/Math.max(a,ideal)*100);let last=-1,lastSent=0;function loop(){if(!stream||!stream.active)return;if(video.readyState>=2&&video.currentTime!==last){last=video.currentTime;const faces=detector.detectForVideo(video,performance.now()).faceLandmarks;if(faces?.length){const p=faces[0],d=(a,b)=>dist(p[L[a]],p[L[b]]),rows=[];let total=0,n=0;const add=(name,actual,ideal,score)=>{rows.push({name,actual,ideal,score});total+=score;n++;};const h=d('forehead','chin'),w=d('leftCheek','rightCheek');if(h&&w){const v=h/w;add('Face Length ÷ Width',v.toFixed(3),'1.618',close(v,1.6180339887));}const u=d('forehead','leftBrow'),m=d('leftBrow','noseBase'),lo=d('noseBase','chin');if(u&&m&&lo){const avg=(u+m+lo)/3,diff=Math.max(Math.abs(u-avg),Math.abs(m-avg),Math.abs(lo-avg));add('Facial Thirds Balance','Upper / Mid / Lower','Equal thirds',Math.max(0,Math.round(100-diff/avg*180)));}const nose=d('leftEyeInner','rightEyeInner')*.85,mouth=d('leftMouth','rightMouth');if(nose&&mouth){const v=mouth/nose;add('Mouth ÷ Nose Width',v.toFixed(3),'1.618',close(v,1.6180339887));}const eye=(d('leftEyeOuter','leftEyeInner')+d('rightEyeOuter','rightEyeInner'))/2,between=d('leftEyeInner','rightEyeInner');if(eye&&between){const v=Math.max(eye,between)/Math.min(eye,between);add('Eye Width ≈ Eye Distance','Should be similar','1 : 1',close(v,1));}if(n){const result={overall:Math.round(total/n),rows};renderAnalysis(result,'guest');if(Date.now()-lastSent>5000){send('face-result',{result});lastSent=Date.now();}}}else{$('guestStatus').textContent='Position your face in the camera.';}}requestAnimationFrame(loop);}requestAnimationFrame(loop);}
+async function runFaceAnalysis(video){
+ try{
+  const vision=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14');
+  const files=await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+  const options={baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'},runningMode:'VIDEO',numFaces:1};
+  let detector;
+  try{detector=await vision.FaceLandmarker.createFromOptions(files,{...options,baseOptions:{...options.baseOptions,delegate:'GPU'}});}
+  catch(gpuError){console.warn('GPU face analysis unavailable; using CPU.',gpuError);detector=await vision.FaceLandmarker.createFromOptions(files,{...options,baseOptions:{...options.baseOptions,delegate:'CPU'}});}
+  const L={forehead:10,chin:152,leftCheek:234,rightCheek:454,noseBase:2,leftMouth:61,rightMouth:291,leftEyeInner:133,rightEyeInner:362,leftEyeOuter:33,rightEyeOuter:263,leftBrow:107};
+  const dist=(a,b)=>Math.hypot((a.x-b.x)*video.videoWidth,(a.y-b.y)*video.videoHeight);
+  const close=(a,ideal)=>Math.round(Math.min(a,ideal)/Math.max(a,ideal)*100);
+  let last=-1,lastSent=0,frameErrorShown=false;
+  guestStatus('Face analysis is ready. Keep your face inside the frame.','good');
+  function loop(){
+   if(!stream||!stream.active)return;
+   if(video.readyState>=2&&video.videoWidth&&video.videoHeight&&video.currentTime!==last){
+    last=video.currentTime;
+    try{
+     const faces=detector.detectForVideo(video,performance.now()).faceLandmarks;
+     if(faces&&faces.length){
+      const p=faces[0],d=(x,y)=>dist(p[L[x]],p[L[y]]),rows=[];
+      let total=0,n=0;
+      const add=(name,actual,ideal,score)=>{rows.push({name,actual,ideal,score});total+=score;n++;};
+      const h=d('forehead','chin'),w=d('leftCheek','rightCheek');
+      if(h>0&&w>0){const v=h/w;add('Face Length ÷ Width',v.toFixed(3),'1.618',close(v,1.6180339887));}
+      const u=d('forehead','leftBrow'),m=d('leftBrow','noseBase'),lo=d('noseBase','chin');
+      if(u>0&&m>0&&lo>0){const avg=(u+m+lo)/3,diff=Math.max(Math.abs(u-avg),Math.abs(m-avg),Math.abs(lo-avg));add('Facial Thirds Balance','Upper / Mid / Lower','Equal thirds',Math.max(0,Math.round(100-diff/avg*180)));}
+      const nose=d('leftEyeInner','rightEyeInner')*.85,mouth=d('leftMouth','rightMouth');
+      if(nose>0&&mouth>0){const v=mouth/nose;add('Mouth ÷ Nose Width',v.toFixed(3),'1.618',close(v,1.6180339887));}
+      const eye=(d('leftEyeOuter','leftEyeInner')+d('rightEyeOuter','rightEyeInner'))/2,between=d('leftEyeInner','rightEyeInner');
+      if(eye>0&&between>0){const v=Math.max(eye,between)/Math.min(eye,between);add('Eye Width ≈ Eye Distance','Should be similar','1 : 1',close(v,1));}
+      if(n){const result={overall:Math.round(total/n),rows};renderAnalysis(result,'guest');guestStatus('Face ratios updated live.','good');if(Date.now()-lastSent>2500){send('face-result',{result});lastSent=Date.now();}}
+     }else{guestStatus('No face detected. Face the camera and improve the lighting.','warn');}
+    }catch(frameError){if(!frameErrorShown){console.warn('Face analysis frame error:',frameError);guestStatus('Face analysis paused. Adjust your face or camera and try again.','warn');frameErrorShown=true;}}
+   }
+   requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+ }catch(error){
+  console.error('Face analysis could not initialize:',error);
+  guestStatus('Camera is on, but face analysis could not load. Check your internet connection and reload the guest link.','warn');
+ }
+}
 function send(event,payload={}){if(channel)channel.send({type:'broadcast',event,payload:{...payload,from:isGuest?'guest':'host'}});}
 async function subscribeRoom(){
  channel=sb.channel('camera-room-'+roomId,{config:{broadcast:{self:false}}});
