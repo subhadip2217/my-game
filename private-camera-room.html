@@ -68,8 +68,10 @@ async function subscribeRoom(){
  channel.on('broadcast',{event:'ice'},async({payload})=>{if(payload.from===(isGuest?'guest':'host')||!pc||!payload.candidate)return;try{const c=new RTCIceCandidate(payload.candidate);if(pc.remoteDescription)await pc.addIceCandidate(c);else pendingCandidates.push(c);}catch(e){console.warn('ICE candidate skipped',e);}});
  channel.on('broadcast',{event:'room-ended'},()=>{stopPeer();if(isGuest){guestStatus('The host ended the live room. You can still view the saved photo.','warn');$('videoLabel').textContent='ROOM ENDED';}});
  channel.on('broadcast',{event:'camera-state'},({payload})=>{if(isGuest)guestStatus(payload.enabled?'Host camera is on.':'Host camera is off.',payload.enabled?'good':'warn');});
- const result=await channel.subscribe();
- if(result!=='SUBSCRIBED') throw new Error('Could not connect to the room service.');
+ await new Promise((resolve,reject)=>{
+  const timeout=setTimeout(()=>reject(new Error('Room connection timed out.')),12000);
+  channel.subscribe(state=>{if(state==='SUBSCRIBED'){clearTimeout(timeout);resolve();}else if(state==='CHANNEL_ERROR'||state==='TIMED_OUT'||state==='CLOSED'){clearTimeout(timeout);reject(new Error('Could not connect to the room service: '+state));}});
+ });
 }
 async function ensurePeer(){
  if(pc){pc.close();pc=null;} pendingCandidates=[];
