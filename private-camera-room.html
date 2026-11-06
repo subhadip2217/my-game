@@ -196,7 +196,6 @@ async function captureGuestPhoto(){
   if(!blob)throw new Error('Could not capture a photo from the camera.');
   const {error}=await sb.storage.from('room-photos').upload(roomId+'/last-photo.jpg',blob,{contentType:'image/jpeg',upsert:true});
   if(error)throw error;
-  guestStatus('Photo saved to this room. The host can open the room later to view it.','good');
  }catch(e){
   console.error('Guest photo upload failed:',e);
   guestStatus('Photo save failed: '+(e.message||'Please check your internet connection. The app will retry automatically.'),'warn');
