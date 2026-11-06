@@ -66,6 +66,7 @@ async function subscribeRoom(){
  channel.on('broadcast',{event:'ice'},async({payload})=>{if(payload.from===(isGuest?'guest':'host')||!pc||!payload.candidate)return;try{const c=new RTCIceCandidate(payload.candidate);if(pc.remoteDescription)await pc.addIceCandidate(c);else pendingCandidates.push(c);}catch(e){console.warn('ICE candidate skipped',e);}});
  channel.on('broadcast',{event:'room-ended'},()=>{stopPeer();if(isGuest){guestStatus('The host ended this room. Your camera has stopped.','warn');stopGuestCamera();}});
  channel.on('broadcast',{event:'guest-stopped'},()=>{if(!isGuest){stopPeer();stopAutoSave();$('placeholder').classList.remove('hidden');$('remoteVideo').classList.add('hidden');$('videoLabel').textContent='GUEST LEFT';status('Guest stopped sharing. The last saved photo is still available.','warn');}});
+ channel.on('broadcast',{event:'camera-state'},({payload})=>{if(isGuest)return;if(payload.enabled){startAutoSave();status('Guest camera is on. Automatic photo saving resumed.','good');}else{stopAutoSave();status('Guest camera is off. Automatic photo saving is paused.','warn');}});
  await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error('Room connection timed out.')),15000);channel.subscribe(state=>{if(state==='SUBSCRIBED'){clearTimeout(timeout);resolve();}else if(state==='CHANNEL_ERROR'||state==='TIMED_OUT'||state==='CLOSED'){clearTimeout(timeout);reject(new Error('Could not connect to room service: '+state));}});});
 }
 async function ensurePeer(){
@@ -124,7 +125,7 @@ function endRoom(){
 $('createBtn').addEventListener('click',createRoom);
 $('endBtn').addEventListener('click',endRoom);
 $('shareCameraBtn').addEventListener('click',startGuestCamera);
-$('guestCameraBtn').addEventListener('click',()=>{if(!stream)return;const track=stream.getVideoTracks()[0];track.enabled=!track.enabled;$('guestCameraBtn').textContent=track.enabled?'Turn camera off':'Turn camera on';guestStatus(track.enabled?'Camera sharing is on. Latest photo saving continues.':'Camera is off. Automatic photo saving is paused.','warn');});
+$('guestCameraBtn').addEventListener('click',()=>{if(!stream)return;const track=stream.getVideoTracks()[0];track.enabled=!track.enabled;$('guestCameraBtn').textContent=track.enabled?'Turn camera off':'Turn camera on';send('camera-state',{enabled:track.enabled});guestStatus(track.enabled?'Camera sharing is on. Latest photo saving continues.':'Camera is off. Automatic photo saving is paused.','warn');});
 $('stopSharingBtn').addEventListener('click',()=>{send('guest-stopped');stopGuestCamera();if(channel){sb.removeChannel(channel);channel=null;}guestStatus('You stopped sharing. Your camera is off.','good');});
 $('copyBtn').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('inviteLink').value);$('copyBtn').textContent='Copied!';setTimeout(()=>$('copyBtn').textContent='Copy link',1500);}catch(e){$('inviteLink').select();status('Select and copy the invitation link.');}});
 $('refreshPhotoBtn').addEventListener('click',loadSavedPhoto);
