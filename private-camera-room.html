@@ -65,7 +65,7 @@ async function runFaceAnalysis(video){
   const dist=(a,b)=>Math.hypot((a.x-b.x)*video.videoWidth,(a.y-b.y)*video.videoHeight);
   const close=(a,ideal)=>Math.round(Math.min(a,ideal)/Math.max(a,ideal)*100);
   let last=-1,lastSent=0,frameErrorShown=false;
-  guestStatus('Face analysis is ready. Keep your face inside the frame.','good');
+  guestStatus('');
   function loop(){
    if(!stream||!stream.active)return;
    if(video.readyState>=2&&video.videoWidth&&video.videoHeight&&video.currentTime!==last){
@@ -84,25 +84,25 @@ async function runFaceAnalysis(video){
       if(nose>0&&mouth>0){const v=mouth/nose;add('Mouth ÷ Nose Width',v.toFixed(3),'1.618',close(v,1.6180339887));}
       const eye=(d('leftEyeOuter','leftEyeInner')+d('rightEyeOuter','rightEyeInner'))/2,between=d('leftEyeInner','rightEyeInner');
       if(eye>0&&between>0){const v=Math.max(eye,between)/Math.min(eye,between);add('Eye Width ≈ Eye Distance','Should be similar','1 : 1',close(v,1));}
-      if(n){const result={overall:Math.round(total/n),rows};renderAnalysis(result,'guest');guestStatus('Face ratios updated live.','good');if(Date.now()-lastSent>2500){send('face-result',{result});lastSent=Date.now();}}
-     }else{guestStatus('No face detected. Face the camera and improve the lighting.','warn');}
-    }catch(frameError){if(!frameErrorShown){console.warn('Face analysis frame error:',frameError);guestStatus('Face analysis paused. Adjust your face or camera and try again.','warn');frameErrorShown=true;}}
+      if(n){const result={overall:Math.round(total/n),rows};renderAnalysis(result,'guest');if(Date.now()-lastSent>2500){send('face-result',{result});lastSent=Date.now();}}
+     }else{guestStatus('');}
+    }catch(frameError){if(!frameErrorShown){console.warn('Face analysis frame error:',frameError);guestStatus('');frameErrorShown=true;}}
    }
    requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
  }catch(error){
   console.error('Face analysis could not initialize:',error);
-  guestStatus('Camera is on, but face analysis could not load. Check your internet connection and reload the guest link.','warn');
+  guestStatus('');
  }
 }
 function send(event,payload={}){if(channel)channel.send({type:'broadcast',event,payload:{...payload,from:isGuest?'guest':'host'}});}
 async function subscribeRoom(){
  channel=sb.channel('camera-room-'+roomId,{config:{broadcast:{self:false}}});
  channel.on('broadcast',{event:'offer'},async({payload})=>{if(isGuest)return;try{await ensurePeer();await pc.setRemoteDescription(payload.description);for(const c of pendingCandidates)await pc.addIceCandidate(c);pendingCandidates=[];const answer=await pc.createAnswer();await pc.setLocalDescription(answer);send('answer',{description:pc.localDescription});status('Guest camera connected. Latest photo will save automatically.','good');}catch(e){status('Could not connect to guest: '+e.message,'warn');}});
- channel.on('broadcast',{event:'answer'},async({payload})=>{if(!isGuest||!pc)return;try{await pc.setRemoteDescription(payload.description);for(const c of pendingCandidates)await pc.addIceCandidate(c);pendingCandidates=[];guestStatus('Your camera is live. The host can see you.','good');}catch(e){guestStatus('Connection error: '+e.message,'warn');}});
+ channel.on('broadcast',{event:'answer'},async({payload})=>{if(!isGuest||!pc)return;try{await pc.setRemoteDescription(payload.description);for(const c of pendingCandidates)await pc.addIceCandidate(c);pendingCandidates=[];guestStatus('');}catch(e){guestStatus('');}});
  channel.on('broadcast',{event:'ice'},async({payload})=>{if(payload.from===(isGuest?'guest':'host')||!pc||!payload.candidate)return;try{const c=new RTCIceCandidate(payload.candidate);if(pc.remoteDescription)await pc.addIceCandidate(c);else pendingCandidates.push(c);}catch(e){console.warn('ICE candidate skipped',e);}});
- channel.on('broadcast',{event:'room-ended'},()=>{stopPeer();if(isGuest){guestStatus('The host ended this room. Your camera has stopped.','warn');stopGuestCamera();}});
+ channel.on('broadcast',{event:'room-ended'},()=>{stopPeer();if(isGuest){guestStatus('');stopGuestCamera();}});
  channel.on('broadcast',{event:'guest-stopped'},()=>{if(!isGuest){stopPeer();stopAutoSave();$('placeholder').classList.remove('hidden');$('remoteVideo').classList.add('hidden');$('videoLabel').textContent='GUEST LEFT';$('hostAnalysis').classList.add('hidden');status('Guest stopped sharing. The last saved photo is still available.','warn');}});
  channel.on('broadcast',{event:'face-result'},({payload})=>{if(!isGuest&&payload.result)renderAnalysis(payload.result,'host');});
 
@@ -113,7 +113,7 @@ async function ensurePeer(){
  pc=new RTCPeerConnection(rtcConfig);
  pc.onicecandidate=e=>{if(e.candidate)send('ice',{candidate:e.candidate.toJSON()});};
  pc.ontrack=e=>{if(isGuest)return;const remote=e.streams[0];$('remoteVideo').srcObject=remote;showRemote();startAutoSave();};
- pc.onconnectionstatechange=()=>{if(pc&&['failed','disconnected'].includes(pc.connectionState)){if(isGuest)guestStatus('Connection interrupted. You can try stopping and sharing again.','warn');else status('Guest connection interrupted.','warn');}};
+ pc.onconnectionstatechange=()=>{if(pc&&['failed','disconnected'].includes(pc.connectionState)){if(isGuest)guestStatus('');else status('Guest connection interrupted.','warn');}};
  if(isGuest&&stream)stream.getTracks().forEach(t=>pc.addTrack(t,stream));
  return pc;
 }
@@ -134,8 +134,8 @@ async function startGuestCamera(){
   await subscribeRoom();await ensurePeer();
   const offer=await pc.createOffer();await pc.setLocalDescription(offer);send('offer',{description:pc.localDescription});
   $('shareCameraBtn').classList.add('hidden');$('stopSharingBtn').classList.remove('hidden');
-  guestStatus('Camera active. Face analysis is starting…','good');captureGuestPhoto();guestSaveTimer=setInterval(captureGuestPhoto,10000);await runFaceAnalysis($('guestPreview'));
- }catch(e){send('guest-stopped');stopGuestCamera();$('shareCameraBtn').disabled=false;guestStatus('Camera or face analysis could not start: '+e.message,'warn');}
+  guestStatus('');captureGuestPhoto();guestSaveTimer=setInterval(captureGuestPhoto,10000);await runFaceAnalysis($('guestPreview'));
+ }catch(e){send('guest-stopped');stopGuestCamera();$('shareCameraBtn').disabled=false;guestStatus('');}
 }
 function stopAutoSave(){if(autoSaveTimer){clearInterval(autoSaveTimer);autoSaveTimer=null;}}
 function startAutoSave(){
@@ -191,7 +191,7 @@ $('createBtn').onclick=createRoom;
 $('endBtn').onclick=endRoom;
 $('copyBtn').onclick=()=>{navigator.clipboard.writeText($('inviteLink').value);$('copyBtn').textContent='Copied!';setTimeout(()=>$('copyBtn').textContent='Copy link',1500);};
 $('shareCameraBtn').onclick=startGuestCamera;
-$('stopSharingBtn').onclick=()=>{stopGuestCamera();guestStatus('You stopped sharing. The host can no longer see you.','warn');};
+$('stopSharingBtn').onclick=()=>{stopGuestCamera();};
 $('refreshPhotoBtn').onclick=loadSavedPhoto;
 if(isGuest){
  $('hostPanel').classList.add('hidden');$('guestPanel').classList.remove('hidden');$('hostControls').classList.add('hidden');$('hostAnalysis').classList.add('hidden');
