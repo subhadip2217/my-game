@@ -47,7 +47,7 @@ const params=new URLSearchParams(location.search);
 const roomFromUrl=params.get('room');
 const isGuest=!!roomFromUrl&&params.get('mode')==='guest';
 const randomRoom=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
-let roomId=roomFromUrl||(params.get('mode')==='host'?params.get('room'):localStorage.getItem('handdrive-host-room'))||null,channel=null,stream=null,pc=null,savedObjectUrl=null,pendingCandidates=[],autoSaveTimer=null,guestSaveTimer=null,lastSavedAt=0;
+let roomId=roomFromUrl||(params.get('mode')==='host'?params.get('room'):localStorage.getItem('handdrive-host-room'))||null,channel=null,stream=null,pc=null,savedObjectUrl=null,pendingCandidates=[],autoSaveTimer=null,guestSaveTimer=null,lastSavedAt=0,guestUploadBusy=false,photoRefreshTimer=null;
 // Match the free Open Relay ICE configuration already used by play.html.
 const rtcConfig={
  iceServers:[
@@ -136,9 +136,19 @@ async function ensurePeer(){
  return pc;
 }
 async function loadSavedPhoto(){
- if(!roomId)return;
- try{const {data,error}=await sb.storage.from('room-photos').download(roomId+'/last-photo.jpg');if(error)throw error;if(savedObjectUrl)URL.revokeObjectURL(savedObjectUrl);savedObjectUrl=URL.createObjectURL(data);$('savedPhoto').src=savedObjectUrl;$('savedPhoto').style.display='block';}
- catch(e){$('savedPhoto').style.display='none';}
+ if(!roomId)return false;
+ try{
+  const {data,error}=await sb.storage.from('room-photos').download(roomId+'/last-photo.jpg');
+  if(error)throw error;
+  if(savedObjectUrl)URL.revokeObjectURL(savedObjectUrl);
+  savedObjectUrl=URL.createObjectURL(data);
+  $('savedPhoto').src=savedObjectUrl;
+  $('savedPhoto').style.display='block';
+  return true;
+ }catch(e){
+  console.warn('Saved room photo is not available yet:',e.message);
+  return false;
+ }
 }
 async function createRoom(){
  try{roomId=randomRoom();localStorage.setItem('handdrive-host-room',roomId);history.replaceState({},'',location.pathname+'?room='+roomId+'&mode=host');await subscribeRoom();$('shareArea').classList.remove('hidden');$('inviteLink').value=location.origin+location.pathname+'?room='+roomId+'&mode=guest';$('createBtn').classList.add('hidden');$('endBtn').classList.remove('hidden');status('Room is ready. Share the link; your guest can choose to share their camera.','good');}
@@ -175,11 +185,24 @@ function stopPeer(){stopAutoSave();if(pc){pc.ontrack=null;pc.close();pc=null;}pe
 function stopGuestAutoSave(){if(guestSaveTimer){clearInterval(guestSaveTimer);guestSaveTimer=null;}}
 async function captureGuestPhoto(){
  const video=$('guestPreview');
- if(!isGuest||!stream||!stream.active||!video.videoWidth||!video.videoHeight)return;
- const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;
- canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
- const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.88));if(!blob)return;
- try{await sb.storage.from('room-photos').upload(roomId+'/last-photo.jpg',blob,{contentType:'image/jpeg',upsert:true});}catch(e){console.warn('Guest photo upload failed',e);}
+ if(!isGuest||!roomId||!stream||!stream.active||!video.videoWidth||!video.videoHeight||guestUploadBusy)return;
+ guestUploadBusy=true;
+ try{
+  const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+  const ctx=canvas.getContext('2d');
+  if(!ctx)throw new Error('Could not prepare the photo.');
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.88));
+  if(!blob)throw new Error('Could not capture a photo from the camera.');
+  const {error}=await sb.storage.from('room-photos').upload(roomId+'/last-photo.jpg',blob,{contentType:'image/jpeg',upsert:true});
+  if(error)throw error;
+  guestStatus('Photo saved to this room. The host can open the room later to view it.','good');
+ }catch(e){
+  console.error('Guest photo upload failed:',e);
+  guestStatus('Photo save failed: '+(e.message||'Please check your internet connection. The app will retry automatically.'),'warn');
+ }finally{
+  guestUploadBusy=false;
+ }
 }
 function stopGuestCamera(){
  stopGuestAutoSave();
@@ -224,6 +247,7 @@ if(isGuest){
  $('inviteLink').value=location.origin+location.pathname+'?room='+roomId+'&mode=guest';
  subscribeRoom().then(()=>status('Room open. Waiting for guest…','good')).catch(e=>status(e.message,'warn'));
  loadSavedPhoto();
+ photoRefreshTimer=setInterval(loadSavedPhoto,15000);
 }
 })();
 </script></body></html>
