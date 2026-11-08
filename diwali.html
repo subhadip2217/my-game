@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#090713">
+<title>Happy Diwali ✨ | A Little Light for You</title>
+<meta name="description" content="A little light, a little love, and a lot of happiness. Send someone a beautiful Diwali greeting.">
+<style>
+:root{color-scheme:dark;--gold:#ffd783;--gold2:#ffad42;--cream:#fff1d2;--muted:#c6b7a0}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;overflow-x:hidden;background:radial-gradient(ellipse at 50% 35%,#302044 0%,#171126 42%,#090713 100%);color:var(--cream);font-family:Georgia,'Times New Roman',serif}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;background-image:radial-gradient(#fff 0.7px,transparent .7px);background-size:34px 34px;mask-image:linear-gradient(to bottom,black,transparent 90%)}
+#sky{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+main{position:relative;z-index:2;min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:42px 18px 30px;text-align:center}
+.topline{font:600 10px/1.5 system-ui,sans-serif;letter-spacing:.34em;text-transform:uppercase;color:#e8bd79;opacity:.9}
+h1{font-size:clamp(48px,10vw,92px);line-height:.98;margin:22px 0 12px;font-weight:500;letter-spacing:-.055em;background:linear-gradient(110deg,#fff5d9 10%,#ffd783 43%,#fff0bc 58%,#d99a48 90%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 8px 45px #ffb94a24}
+.subtitle{font:400 clamp(14px,2vw,17px)/1.8 system-ui,sans-serif;color:#e2d2bb;max-width:510px;margin:0 auto}
+.ornament{display:flex;align-items:center;gap:14px;justify-content:center;color:#dca95e;margin:22px 0 8px;font-size:17px}
+.ornament:before,.ornament:after{content:"";height:1px;width:55px;background:linear-gradient(90deg,transparent,#c99752)}
+.ornament:after{transform:rotate(180deg)}
+.lamp-wrap{position:relative;width:190px;height:180px;margin:18px auto 10px;display:grid;place-items:center;cursor:pointer;filter:drop-shadow(0 0 26px #ff9d363b);-webkit-tap-highlight-color:transparent}
+.lamp-glow{position:absolute;width:130px;height:110px;border-radius:50%;background:#ff9d36;filter:blur(42px);opacity:.23;transition:opacity .5s}
+.lamp-wrap.lit .lamp-glow{opacity:.65}
+.flame{position:absolute;top:12px;width:30px;height:54px;background:radial-gradient(ellipse at 50% 70%,#fffbd4 0 13%,#ffe58a 28%,#ff9a32 62%,#f14d22 85%,transparent 88%);border-radius:70% 15% 65% 55%;transform:rotate(4deg);filter:drop-shadow(0 0 13px #ffb13b);animation:flicker .16s infinite alternate;transform-origin:50% 90%}
+.flame:after{content:"";position:absolute;width:12px;height:27px;left:9px;top:20px;background:#fff8cf;border-radius:50% 50% 45% 45%;filter:blur(2px)}
+.lamp-wrap:not(.lit) .flame{opacity:.25;filter:grayscale(1);animation:none}
+.bowl{position:absolute;bottom:35px;width:116px;height:49px;border-radius:8px 8px 58px 58px;background:linear-gradient(180deg,#ffdc8a,#b75c27 48%,#6b2b25);border:2px solid #f6c16c;box-shadow:inset 0 5px 9px #fff5b45c,0 12px 22px #0008}
+.bowl:before{content:"";position:absolute;top:-5px;left:-5px;width:120px;height:13px;border-radius:50%;background:linear-gradient(90deg,#a84b25,#ffe4a1,#a84b25);border:1px solid #ffdb8c}
+.bowl:after{content:"";position:absolute;bottom:8px;left:18px;width:78px;height:2px;background:#ffe4a1a6;border-radius:50%}
+.base{position:absolute;bottom:24px;width:144px;height:12px;border-radius:50%;background:linear-gradient(90deg,#763b2d,#f4c16d,#763b2d);box-shadow:0 5px 12px #0008}
+.tap-hint{font:11px system-ui,sans-serif;letter-spacing:.12em;color:#d4b78c;text-transform:uppercase;margin:0 0 14px}
+.message{font-size:clamp(19px,3vw,25px);line-height:1.55;color:#ffebc6;margin:5px auto 7px;max-width:620px}
+.from{font:12px system-ui,sans-serif;color:#cbb99e;letter-spacing:.12em;margin-top:8px}
+.card{width:min(100%,440px);margin:28px auto 0;padding:20px;border:1px solid #e9bd7650;border-radius:20px;background:linear-gradient(145deg,#ffffff0c,#ffffff04);box-shadow:0 20px 70px #0003;backdrop-filter:blur(12px)}
+.card label{display:block;text-align:left;font:11px system-ui,sans-serif;letter-spacing:.13em;text-transform:uppercase;color:#e6c58e;margin:0 0 9px 3px}
+.input-row{display:flex;gap:8px}
+input{min-width:0;flex:1;border:1px solid #e5c08050;border-radius:12px;padding:13px 14px;background:#100d1d;color:#fff1d2;font:14px system-ui,sans-serif;outline:none}
+input:focus{border-color:#ffd783;box-shadow:0 0 0 3px #ffd78320}
+button{border:0;border-radius:12px;padding:12px 17px;background:linear-gradient(135deg,#ffe4a2,#d99a49);color:#321b16;font:700 13px system-ui,sans-serif;cursor:pointer;transition:transform .2s,filter .2s;white-space:nowrap}
+button:hover{transform:translateY(-2px);filter:brightness(1.08)}
+button:active{transform:scale(.97)}
+.share{margin-top:10px;width:100%;background:linear-gradient(135deg,#fff1d5,#d9b77f)}
+footer{font:10px system-ui,sans-serif;color:#9e8b76;letter-spacing:.12em;margin-top:30px}
+.spark{position:fixed;width:4px;height:4px;border-radius:50%;background:#ffdf9b;box-shadow:0 0 12px 3px #ffbb5c;pointer-events:none;z-index:0;animation:rise var(--d) linear infinite;left:var(--x);bottom:-10px;opacity:0}
+@keyframes flicker{from{transform:rotate(-5deg) scale(.94,1)}to{transform:rotate(5deg) scale(1.06,.97)}}
+@keyframes rise{0%{transform:translateY(0) scale(.4);opacity:0}15%{opacity:.8}85%{opacity:.5}100%{transform:translateY(-110vh) scale(1.2);opacity:0}}
+@media(max-width:480px){main{padding-top:32px}.lamp-wrap{margin-top:14px}.card{padding:16px}.input-row{flex-direction:column}button{width:100%}h1{font-size:clamp(47px,13vw,66px)}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<main>
+  <div class="topline">A festival of lights · A celebration of love</div>
+  <div class="ornament">✧ शुभ दीपावली ✧</div>
+  <h1>Happy<br>Diwali</h1>
+  <p class="subtitle">May your home glow with happiness, your heart shine with hope, and every new beginning bring you closer to your dreams.</p>
+  <div class="lamp-wrap lit" id="lamp" role="button" tabindex="0" aria-label="Light or put out the diya">
+    <div class="lamp-glow"></div><div class="flame"></div><div class="bowl"></div><div class="base"></div>
+  </div>
+  <p class="tap-hint" id="lampHint">Tap the diya to make a wish ✨</p>
+  <p class="message" id="greeting">Wishing you and your family a Diwali filled with peace, prosperity & endless smiles.</p>
+  <div class="from">WITH LIGHT & LOVE · SUBHADIP</div>
+  <section class="card" aria-label="Personalise your greeting">
+    <label for="name">Send a little light to someone</label>
+    <div class="input-row">
+      <input id="name" type="text" maxlength="35" placeholder="Enter their name..." autocomplete="off">
+      <button id="personalise">Personalise</button>
+    </div>
+    <button class="share" id="share">↗ Share this Diwali wish</button>
+  </section>
+  <footer>MADE WITH ✦ FOR THE FESTIVAL OF LIGHTS</footer>
+</main>
+<script>
+const canvas=document.getElementById('sky'),ctx=canvas.getContext('2d');
+let w,h,particles=[],rockets=[],last=0;
+function resize(){w=canvas.width=innerWidth*devicePixelRatio;h=canvas.height=innerHeight*devicePixelRatio;canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px';ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);w=innerWidth;h=innerHeight}
+addEventListener('resize',resize);resize();
+function burst(x,y){const hue=35+Math.random()*30;for(let i=0;i<65;i++){const a=Math.PI*2*i/65+Math.random()*.12,s=1.1+Math.random()*4;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:55+Math.random()*35,max:90,hue,size:1+Math.random()*2})}}
+function launch(){rockets.push({x:Math.random()*w*.8+w*.1,y:h+5,target:70+Math.random()*h*.48,speed:5+Math.random()*3})}
+function frame(t){ctx.clearRect(0,0,w,h);if(t-last>1900){launch();last=t}
+for(let i=rockets.length-1;i>=0;i--){const r=rockets[i];r.y-=r.speed;ctx.fillStyle='#ffe1a0';ctx.beginPath();ctx.arc(r.x,r.y,2,0,Math.PI*2);ctx.fill();if(r.y<r.target){burst(r.x,r.y);rockets.splice(i,1)}}
+for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vx*=.985;p.vy=p.vy*.985+.035;p.life--;ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle='hsl('+p.hue+' 100% 70%)';ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();if(p.life<=0)particles.splice(i,1)}
+ctx.globalAlpha=1;requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+const lamp=document.getElementById('lamp'),hint=document.getElementById('lampHint');
+function toggleLamp(){lamp.classList.toggle('lit');hint.textContent=lamp.classList.contains('lit')?'Your wish is glowing ✨':'Tap again to relight your diya';if(lamp.classList.contains('lit'))burst(innerWidth/2,innerHeight*.57)}
+lamp.addEventListener('click',toggleLamp);lamp.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleLamp()}});
+for(let i=0;i<24;i++){const s=document.createElement('i');s.className='spark';s.style.setProperty('--x',Math.random()*100+'%');s.style.setProperty('--d',(9+Math.random()*14)+'s');s.style.animationDelay=(-Math.random()*20)+'s';s.style.opacity='.5';document.body.appendChild(s)}
+const nameInput=document.getElementById('name'),greeting=document.getElementById('greeting');
+function personalise(){const name=nameInput.value.trim();greeting.textContent=name?'Dear '+name+', may your life shine brighter than a thousand diyas. Wishing you joy, good health and beautiful new beginnings.':'Wishing you and your family a Diwali filled with peace, prosperity & endless smiles.';if(name)burst(innerWidth/2,innerHeight*.36)}
+document.getElementById('personalise').addEventListener('click',personalise);
+nameInput.addEventListener('keydown',e=>{if(e.key==='Enter')personalise()});
+document.getElementById('share').addEventListener('click',async()=>{const name=nameInput.value.trim();const text=name?'Dear '+name+', '+greeting.textContent+' — From Subhadip 🪔':'Wishing you and your family a Diwali filled with peace, prosperity & endless smiles. — From Subhadip 🪔';const data={title:'Happy Diwali 🪔',text,url:location.href};try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(text+'\n'+location.href);alert('Diwali wish and page link copied! Share it with your loved ones.')}}catch(e){if(e.name!=='AbortError'){try{await navigator.clipboard.writeText(text+'\n'+location.href);alert('Greeting copied!')}catch{alert('Copy this page link: '+location.href)}}}});
+</script>
+</body>
+</html>
