@@ -83,6 +83,40 @@ footer{font:9px system-ui,sans-serif;color:#9e8b76;letter-spacing:.2em;margin:26
 @keyframes titleShimmer{to{background-position:220% center}}
 @keyframes cardShine{0%,55%{left:-45%}75%,100%{left:130%}}
 
+
+/* Expanded festive experience */
+.reveal{position:relative;isolation:isolate}
+.reveal:before{content:"";position:absolute;z-index:-1;top:-82px;left:50%;width:min(560px,90vw);aspect-ratio:1;transform:translateX(-50%);border-radius:50%;opacity:.2;background:repeating-radial-gradient(circle,transparent 0 24px,#e7b86b 25px 26px,transparent 27px 45px),conic-gradient(from 0deg,transparent 0 8deg,#f3ca7b35 9deg 10deg,transparent 11deg 20deg);mask-image:radial-gradient(circle,black 12%,transparent 72%);animation:mandalaTurn 90s linear infinite;pointer-events:none}
+body.opening:before{content:"";position:fixed;z-index:20;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 48%,#fff0bd 0%,#ffd16e88 11%,#f9a83b33 28%,transparent 65%);animation:openingFlash .85s ease-out forwards}
+@keyframes openingFlash{0%{opacity:0;transform:scale(.15)}35%{opacity:1}100%{opacity:0;transform:scale(2.4)}}
+@keyframes mandalaTurn{to{rotate:360deg}}
+.section-kicker{font:600 9px system-ui,sans-serif;letter-spacing:.28em;text-transform:uppercase;color:#d8b678;margin:16px 0 8px}
+.section-title{font-size:clamp(24px,4vw,34px);font-weight:500;color:#ffe6b4;margin:0 0 9px}
+.section-copy{font:12px/1.7 system-ui,sans-serif;color:#c7b69d;margin:0 auto 18px;max-width:500px}
+.blessings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:760px;margin:35px auto 0}
+.blessing-card{position:relative;min-height:154px;padding:22px 14px 18px;border-radius:19px;border:1px solid #e5bc7650;background:linear-gradient(145deg,#fff2d111,#ffffff04);box-shadow:inset 0 1px #fff2d312,0 14px 35px #0002;overflow:hidden;transition:transform .35s,border-color .35s,background .35s}
+.blessing-card:after{content:"";position:absolute;width:100px;height:100px;right:-38px;bottom:-52px;border:1px solid #e8bc6b35;border-radius:50%;box-shadow:0 0 0 10px #e8bc6b0b,0 0 0 22px #e8bc6b08}
+.blessing-card:hover{transform:translateY(-6px);border-color:#f5d28a99;background:linear-gradient(145deg,#fff2d122,#ffffff08)}
+.blessing-icon{display:block;font-size:27px;margin-bottom:11px;filter:drop-shadow(0 0 12px #ffc76a50)}
+.blessing-card strong{display:block;font-size:17px;font-weight:500;color:#ffe5b1;margin-bottom:6px}
+.blessing-card span:last-child{display:block;font:10px/1.6 system-ui,sans-serif;color:#bfae96}
+.wish-studio{max-width:680px;margin:34px auto 0;padding:24px 22px;border:1px solid #e6bb765e;border-radius:24px;background:radial-gradient(ellipse at 50% 0%,#e8b96618,transparent 65%),linear-gradient(145deg,#ffffff10,#ffffff04);box-shadow:0 22px 70px #0003;position:relative;overflow:hidden}
+.wish-studio:before{content:"✧";position:absolute;top:13px;right:17px;color:#eac37d88;font-size:22px}
+.wish-studio h3{margin:0 0 8px;color:#ffe8bd;font-weight:500;font-size:clamp(22px,4vw,29px)}
+.wish-studio p{font:11px/1.7 system-ui,sans-serif;color:#c8b79f;margin:0 auto 17px;max-width:470px}
+.wish-form{display:flex;gap:9px;max-width:510px;margin:auto}
+.wish-form input{flex:1;min-width:0;border:1px solid #e6bf795d;border-radius:12px;padding:13px 14px;background:#100d1de0;color:#fff1d2;font:13px system-ui,sans-serif;outline:none}
+.wish-form input:focus{border-color:#ffd783;box-shadow:0 0 0 3px #ffd78320}
+.wish-form button{border:1px solid #ffe4a5;border-radius:12px;padding:12px 17px;background:linear-gradient(110deg,#ffe9b6,#e4a34f);color:#321a18;font:700 11px system-ui,sans-serif;letter-spacing:.08em;cursor:pointer;white-space:nowrap}
+.wish-result{min-height:0;margin:0 auto;max-width:520px;color:#f7dca8;font:italic 15px/1.6 Georgia,serif;opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s}
+.wish-result.visible{opacity:1;transform:translateY(0);margin-top:17px}
+.wish-result:before{content:"✦ ";color:#ffd783}
+.sky-tip{font:9px system-ui,sans-serif;letter-spacing:.15em;text-transform:uppercase;color:#947f68;margin-top:17px}
+.rangoli{filter:drop-shadow(0 0 13px #dba85d35)}
+.diya:focus-visible,.primary:focus-visible,.secondary:focus-visible,.music-control:focus-visible,.wish-form button:focus-visible{outline:2px solid #fff0bd;outline-offset:4px}
+@media(max-width:650px){.blessings{grid-template-columns:1fr;max-width:420px;gap:9px}.blessing-card{min-height:0;padding:16px 17px;text-align:left;display:grid;grid-template-columns:42px 1fr;column-gap:10px;align-items:center}.blessing-icon{grid-row:span 2;margin:0;font-size:25px}.blessing-card strong{margin:0 0 3px}.wish-studio{padding:21px 15px}.wish-form{flex-direction:column}.wish-form button{width:100%}}
+@media(max-width:520px){.reveal:before{top:-55px;opacity:.13}.section-copy{padding:0 8px}}
+
 @media(max-width:520px){.scene{padding:28px 14px}.intro p{font-size:13px}.wish{padding:18px 15px}.lamp-row{gap:0}.diya{width:clamp(53px,17vw,72px);height:98px}.bowl{width:57px}.bowl:before{width:60px}.diya .glow{width:52px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>
@@ -108,6 +142,7 @@ footer{font:9px system-ui,sans-serif;color:#9e8b76;letter-spacing:.2em;margin:26
   <div class="divider">✧ ✦ ✧</div>
   <button class="music-control" id="musicToggle" type="button" aria-pressed="false" aria-label="Play Diwali music"><span class="music-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span id="musicLabel">Diwali music · Off</span></button>
   
+  <div class="section-kicker">Five little flames · Five timeless blessings</div>
   <div class="lamp-row" id="lampRow">
     <div class="diya" role="button" tabindex="0" aria-label="Light diya one"><div class="glow"></div><div class="flame"></div><div class="bowl"></div><div class="base"></div><span class="diya-label">Hope</span></div>
     <div class="diya" role="button" tabindex="0" aria-label="Light diya two"><div class="glow"></div><div class="flame"></div><div class="bowl"></div><div class="base"></div><span class="diya-label">Peace</span></div>
@@ -116,6 +151,21 @@ footer{font:9px system-ui,sans-serif;color:#9e8b76;letter-spacing:.2em;margin:26
     <div class="diya" role="button" tabindex="0" aria-label="Light diya five"><div class="glow"></div><div class="flame"></div><div class="bowl"></div><div class="base"></div><span class="diya-label">Prosperity</span></div>
   </div>
   <div class="wish"><p>May your home be filled with warmth, your heart with gratitude, and your path with endless possibilities. Wishing you and your family happiness, good health and success.</p><small>WITH LIGHT & LOVE · SUBHADIP</small></div>
+  <section class="blessings" aria-label="Diwali blessings">
+    <article class="blessing-card"><span class="blessing-icon">🌼</span><strong>New beginnings</strong><span>May every sunrise bring fresh hope and beautiful opportunities.</span></article>
+    <article class="blessing-card"><span class="blessing-icon">🕊️</span><strong>Peace at home</strong><span>May kindness, calm and togetherness fill every corner.</span></article>
+    <article class="blessing-card"><span class="blessing-icon">✨</span><strong>Dreams that shine</strong><span>May courage guide your steps and your hard work find its light.</span></article>
+  </section>
+  <section class="wish-studio" aria-label="Make a Diwali wish">
+    <h3>Make a little wish</h3>
+    <p>Think of something beautiful you hope for. Write it here, then send it into the Diwali sky.</p>
+    <form class="wish-form" id="wishForm">
+      <input id="wishInput" type="text" maxlength="90" placeholder="A wish for this new beginning…" autocomplete="off" aria-label="Your Diwali wish">
+      <button type="submit">Release my wish ✦</button>
+    </form>
+    <div class="wish-result" id="wishResult" aria-live="polite"></div>
+    <div class="sky-tip">You can also tap anywhere in the night sky for a sparkle</div>
+  </section>
   <div class="rangoli" aria-hidden="true"></div>
   <div class="actions"><button class="secondary" id="lightAll">✦ Light all the diyas</button><button class="secondary" id="celebrate">✧ Celebrate with fireworks</button></div>
   <footer>MADE WITH LIGHT · COLOUR · LOVE</footer>
@@ -140,14 +190,16 @@ function updateMusicUI(playing){musicToggle.classList.toggle('playing',playing);
 function startMusic(){music.volume=.55;const playPromise=music.play();if(playPromise&&typeof playPromise.then==='function'){playPromise.then(()=>updateMusicUI(true)).catch(()=>{musicLabel.textContent='Tap to start music';updateMusicUI(false)})}else{updateMusicUI(true)}}
 music.addEventListener('pause',()=>updateMusicUI(false));music.addEventListener('play',()=>updateMusicUI(true));music.addEventListener('error',()=>{musicLabel.textContent='Music file unavailable';updateMusicUI(false)});
 musicToggle.addEventListener('click',()=>{if(music.paused)startMusic();else music.pause()});
-document.getElementById('openBtn').addEventListener('click',()=>{document.body.classList.add('opened');startMusic();setTimeout(()=>{lightAll();celebrate()},900)});
+document.getElementById('openBtn').addEventListener('click',()=>{document.body.classList.add('opening');startMusic();setTimeout(()=>{document.body.classList.add('opened');document.body.classList.remove('opening');setTimeout(()=>{lightAll();celebrate()},350)},650)});
 const diyas=[...document.querySelectorAll('.diya')];
 function lightOne(d){d.classList.toggle('lit');if(d.classList.contains('lit')){const r=d.getBoundingClientRect();burst(r.left+r.width/2,r.top+22)}}
 function lightAll(){diyas.forEach((d,i)=>setTimeout(()=>{d.classList.add('lit');const r=d.getBoundingClientRect();burst(r.left+r.width/2,r.top+22)},i*260))}
 diyas.forEach(d=>{d.addEventListener('click',()=>lightOne(d));d.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();lightOne(d)}})});
 document.getElementById('lightAll').addEventListener('click',lightAll);
 document.getElementById('celebrate').addEventListener('click',celebrate);
-fireCanvas.addEventListener('click',e=>{if(document.body.classList.contains('opened'))burst(e.clientX,e.clientY)});
+document.addEventListener('click',e=>{if(!document.body.classList.contains('opened'))return;if(e.target.closest('button,input,.diya,.music-control'))return;if(e.target.closest('.wish-studio'))return;burst(e.clientX,e.clientY)});
+const wishForm=document.getElementById('wishForm'),wishInput=document.getElementById('wishInput'),wishResult=document.getElementById('wishResult');
+wishForm.addEventListener('submit',e=>{e.preventDefault();const wish=wishInput.value.trim();if(!wish){wishInput.focus();return}wishResult.textContent='Your wish is on its way: “'+wish+'”';wishResult.classList.add('visible');const box=wishForm.getBoundingClientRect();burst(box.left+box.width/2,box.top);wishInput.value='';});
 </script>
 </body>
 </html>
