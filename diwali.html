@@ -69,7 +69,7 @@ footer{font:10px system-ui,sans-serif;color:#9e8b76;letter-spacing:.12em;margin-
       <input id="name" type="text" maxlength="35" placeholder="Enter their name..." autocomplete="off">
       <button id="personalise">Personalise</button>
     </div>
-    <button class="share" id="share">↗ Share this Diwali wish</button>
+    <button class="share" id="share">🔗 Copy Diwali invite link</button>
   </section>
   <footer>MADE WITH ✦ FOR THE FESTIVAL OF LIGHTS</footer>
 </main>
@@ -93,7 +93,7 @@ const nameInput=document.getElementById('name'),greeting=document.getElementById
 function personalise(){const name=nameInput.value.trim();greeting.textContent=name?'Dear '+name+', may your life shine brighter than a thousand diyas. Wishing you joy, good health and beautiful new beginnings.':'Wishing you and your family a Diwali filled with peace, prosperity & endless smiles.';if(name)burst(innerWidth/2,innerHeight*.36)}
 document.getElementById('personalise').addEventListener('click',personalise);
 nameInput.addEventListener('keydown',e=>{if(e.key==='Enter')personalise()});
-document.getElementById('share').addEventListener('click',async()=>{const name=nameInput.value.trim();const text=name?'Dear '+name+', '+greeting.textContent+' — From Subhadip 🪔':'Wishing you and your family a Diwali filled with peace, prosperity & endless smiles. — From Subhadip 🪔';const data={title:'Happy Diwali 🪔',text,url:location.href};try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(text+'\n'+location.href);alert('Diwali wish and page link copied! Share it with your loved ones.')}}catch(e){if(e.name!=='AbortError'){try{await navigator.clipboard.writeText(text+'\n'+location.href);alert('Greeting copied!')}catch{alert('Copy this page link: '+location.href)}}}});
+document.getElementById('share').addEventListener('click',async()=>{const button=document.getElementById('share');const inviteLink=location.href;let copied=false;try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(inviteLink);copied=true}}catch(e){}if(!copied){const helper=document.createElement('textarea');helper.value=inviteLink;helper.setAttribute('readonly','');helper.style.position='fixed';helper.style.opacity='0';document.body.appendChild(helper);helper.select();try{copied=document.execCommand('copy')}catch(e){}helper.remove()}if(copied){button.textContent='✓ Invite link copied!'}else{button.textContent='Select and copy the link';window.prompt('Copy your Diwali invite link:',inviteLink)}setTimeout(()=>{button.textContent='🔗 Copy Diwali invite link'},2500)});
 </script>
 </body>
 </html>
